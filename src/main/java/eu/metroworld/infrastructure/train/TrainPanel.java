@@ -39,9 +39,12 @@ public final class TrainPanel extends GenericContainerScreenHandler {
   // Never put control icons on the cursor: shift-click, number keys, drag and throw are denied.
   if(action!=SlotActionType.PICKUP||!canUse(player))return;var c=train.data.control;
   switch(slot){case 10->{if(train.data.hasTraction())c.power=!c.power;}case 12->c.compressor=!c.compressor;case 14->c.reverse();case 16->{if(c.emergency)c.resetEmergency();else{c.emergency=true;c.traction=0;}}case 28->c.traction=Math.max(0,c.traction-1);case 29->c.traction=Math.min(5,c.traction+1);case 32->c.brake=Math.max(0,c.brake-1);case 33->c.brake=Math.min(7,c.brake+1);case 37->c.doors(true);case 40->c.doors(false);case 43->c.lights=!c.lights;default->{}}
-  refresh();sendContentUpdates();
+  setCursorStack(ItemStack.EMPTY);
+  if(player instanceof ServerPlayerEntity sp)sp.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket.UPDATE_CURSOR_SYNC_ID,nextRevision(),-1,ItemStack.EMPTY));
+  sendContentUpdates();
  }
  @Override public void sendContentUpdates(){if(panel!=null)refresh();super.sendContentUpdates();}
  @Override public void onClosed(PlayerEntity player){super.onClosed(player);OPERATORS.remove(train.data.id,operator);/* Closing does not touch traction/brakes. */}
+ static void operatorRemoved(String trainId){OPERATORS.remove(trainId);}
  static void reset(){OPERATORS.clear();}
 }

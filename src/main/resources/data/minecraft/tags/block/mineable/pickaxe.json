@@ -6,6 +6,7 @@
     "btr_infrastructure:chemical_container",
     "btr_infrastructure:ribbed_panel",
     "btr_infrastructure:tactile_tile",
-    "btr_infrastructure:wayfinding_sign"
+    "btr_infrastructure:wayfinding_sign",
+    "metro-world:escalator_landing"
   ]
 }

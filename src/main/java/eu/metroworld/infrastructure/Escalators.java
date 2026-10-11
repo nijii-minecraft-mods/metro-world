@@ -105,7 +105,7 @@ public final class Escalators {
     if(!(floor.isOf(MARKER)||floor.isOf(Blocks.POLISHED_BLACKSTONE)||floor.isOf(Blocks.POLISHED_BLACKSTONE_SLAB)))break;
     var box=player.getBoundingBox().offset(x-player.getX(),y-player.getY(),z-player.getZ());
     if(!world.isSpaceEmpty(player,box))break;
-    player.teleport(world,x,y,z,player.getYaw(),player.getPitch());player.fallDistance=0;break;
+    player.networkHandler.requestTeleport(x,y,z,player.getYaw(),player.getPitch());player.fallDistance=0;break;
    }
   }
  }

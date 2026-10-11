@@ -5,3 +5,6 @@ run/
 .env
 
 server/mods/
+__pycache__/
+*.pyc
+

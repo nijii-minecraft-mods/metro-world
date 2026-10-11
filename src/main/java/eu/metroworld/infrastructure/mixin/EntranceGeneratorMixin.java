@@ -52,7 +52,7 @@ public abstract class EntranceGeneratorMixin {
    world.setBlockState(pos.set(x,y+3,z-3),InfrastructureBlocks.WAYFINDING_SIGN.getDefaultState(),2);
    world.setBlockState(pos.set(x-2,y,z+2),Blocks.GRASS_BLOCK.getDefaultState(),2);
    world.setBlockState(pos.set(x-2,y+1,z+2),Blocks.PINK_TULIP.getDefaultState(),2);
-   org.slf4j.LoggerFactory.getLogger("metro-world").info("Вход метро рядом с {}: {}, {}, {}",registry.getId(start.getStructure()),x,y,z);
+   org.slf4j.LoggerFactory.getLogger("metro-world").debug("Вход метро рядом с {}: {}, {}, {}",registry.getId(start.getStructure()),x,y,z);
   }
  }
  private void metroWorld$plannedEntrance(StructureWorldAccess world,Chunk chunk){
@@ -112,7 +112,7 @@ public abstract class EntranceGeneratorMixin {
    world.setBlockState(new BlockPos(x,y-1,z),Blocks.LADDER.getDefaultState().with(LadderBlock.FACING,Direction.NORTH),2);
    world.setBlockState(new BlockPos(x,y,z),Blocks.OAK_TRAPDOOR.getDefaultState().with(TrapdoorBlock.HALF,BlockHalf.TOP),2);
    world.setBlockState(new BlockPos(x+1,y-1,z),Blocks.SEA_LANTERN.getDefaultState(),2);
-   org.slf4j.LoggerFactory.getLogger("metro-world").info("Технический люк под деревом: {}, {}, {}",x,y,z);
+   org.slf4j.LoggerFactory.getLogger("metro-world").debug("Технический люк под деревом: {}, {}, {}",x,y,z);
    return;
   }
  }

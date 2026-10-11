@@ -61,7 +61,7 @@ public final class StationGraph {
   // A few nearest-neighbour links create regional loops without a regular four-way lattice.
   for(var a:nodes)if(reached.contains(a.id)&&Math.floorMod(a.salt,4)==0){
    Vertex b=null;double best=Double.POSITIVE_INFINITY;for(var v:nodes)if(reached.contains(v.id)&&!v.id.equals(a.id)&&out.stream().noneMatch(e->same(e,a,v))){double d=distance(a,v);if(d<best&&compatible(a,v)&&NoiseRouter.connect(seed,a,v)!=null){best=d;b=v;}}
-   if(b!=null&&best<2200)if(b!=null)out.add(edge(a,b,seed));
+   if(b!=null&&best<2200)out.add(edge(a,b,seed));
   }
   return new Local(nodes.stream().filter(v->reached.contains(v.id)).toList(),List.copyOf(out));
  });}}

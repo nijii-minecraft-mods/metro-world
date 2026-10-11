@@ -76,8 +76,11 @@ public final class Transit {
  private static BlockPos findSurface(ServerWorld world,int x,int z){
   x=(int)Math.min(Math.max((long)x,(long)Math.ceil(world.getWorldBorder().getBoundWest())+2),(long)Math.floor(world.getWorldBorder().getBoundEast())-2);
   z=(int)Math.min(Math.max((long)z,(long)Math.ceil(world.getWorldBorder().getBoundNorth())+2),(long)Math.floor(world.getWorldBorder().getBoundSouth())-2);
+  world.getChunk(Math.floorDiv(x,16),Math.floorDiv(z,16));
   for(int radius=0;radius<=48;radius++)for(int dx=-radius;dx<=radius;dx++)for(int dz=-radius;dz<=radius;dz++){
    if(Math.max(Math.abs(dx),Math.abs(dz))!=radius)continue;
+   int cx=Math.floorDiv(x+dx,16),cz=Math.floorDiv(z+dz,16);
+   if(radius>16&&!world.getChunkManager().isChunkLoaded(cx,cz))continue;
    BlockPos pos=world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,new BlockPos(x+dx,0,z+dz));
    if(safeFeet(world,pos))return pos;
   }

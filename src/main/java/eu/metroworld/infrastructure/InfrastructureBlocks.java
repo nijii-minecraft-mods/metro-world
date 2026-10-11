@@ -19,9 +19,19 @@ public final class InfrastructureBlocks {
  public static final Block RIBBED_PANEL=register("ribbed_panel",Blocks.QUARTZ_PILLAR,Items.QUARTZ_PILLAR);
  public static final Block TACTILE_TILE=register("tactile_tile",Blocks.YELLOW_CONCRETE,Items.YELLOW_CONCRETE);
  public static final Block WAYFINDING_SIGN=register("wayfinding_sign",Blocks.BLUE_CONCRETE,Items.BLUE_CONCRETE);
- public static final Block TRACK_SWITCH=Registry.register(Registries.BLOCK,Identifier.of("metro-world","track_switch"),new TrackSwitchBlock());
+ public static final Block TRACK_SWITCH=registerSwitch();
  public static final Block LIFT=registerLift();
- public static final Block SERVICE_LIFT=Registry.register(Registries.BLOCK,Identifier.of("metro-world","service_terminal"),new ServiceLiftBlock());
+ public static final Block SERVICE_LIFT=registerServiceLift();
+ private static Block registerSwitch(){
+  Identifier id=Identifier.of("metro-world","track_switch");
+  Block block=Registry.register(Registries.BLOCK,id,new TrackSwitchBlock());
+  Registry.register(Registries.ITEM,id,new PolymerBlockItem(block,new Item.Settings(),Items.YELLOW_GLAZED_TERRACOTTA));return block;
+ }
+ private static Block registerServiceLift(){
+  Identifier id=Identifier.of("metro-world","service_terminal");
+  Block block=Registry.register(Registries.BLOCK,id,new ServiceLiftBlock());
+  Registry.register(Registries.ITEM,id,new PolymerBlockItem(block,new Item.Settings(),Items.BLACK_GLAZED_TERRACOTTA));return block;
+ }
  private static Block registerLift(){
   Identifier id=Identifier.of("btr_infrastructure","lift_terminal");
   Block block=Registry.register(Registries.BLOCK,id,new LiftBlock());
@@ -36,6 +46,6 @@ public final class InfrastructureBlocks {
  public static void initialize(){
   PolymerItemGroupUtils.registerPolymerItemGroup(Identifier.of("btr_infrastructure","infrastructure"),
    PolymerItemGroupUtils.builder().displayName(Text.literal("Metro World — Инфраструктура"))
-    .icon(()->new ItemStack(PANEL)).entries((context,entries)->{entries.add(PANEL);entries.add(WARNING);entries.add(CONTAINER);entries.add(LIFT);entries.add(RIBBED_PANEL);entries.add(TACTILE_TILE);entries.add(WAYFINDING_SIGN);}).build());
+    .icon(()->new ItemStack(PANEL)).entries((context,entries)->{entries.add(PANEL);entries.add(WARNING);entries.add(CONTAINER);entries.add(LIFT);entries.add(RIBBED_PANEL);entries.add(TACTILE_TILE);entries.add(WAYFINDING_SIGN);entries.add(TRACK_SWITCH);entries.add(SERVICE_LIFT);}).build());
  }
 }
