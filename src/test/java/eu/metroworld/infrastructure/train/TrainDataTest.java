@@ -41,4 +41,19 @@ final class TrainDataTest {
         assertEquals(0.95, data.scaleAt(0));
         assertEquals("default_model", data.modelAt(1));
     }
+
+    @Test
+    void tractionRequiresNonCargoCar() {
+        TrainData cargoOnly = new TrainData();
+        cargoOnly.cars.addAll(List.of(TrainCar.CONTAINER, TrainCar.PLATFORM));
+        assertFalse(cargoOnly.hasTraction());
+
+        TrainData withLoco = new TrainData();
+        withLoco.cars.addAll(List.of(TrainCar.LOCOMOTIVE, TrainCar.CONTAINER));
+        assertTrue(withLoco.hasTraction());
+
+        TrainData passenger = new TrainData();
+        passenger.cars.add(TrainCar.METRO_BLUE);
+        assertTrue(passenger.hasTraction());
+    }
 }

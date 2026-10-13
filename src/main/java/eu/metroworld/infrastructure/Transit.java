@@ -90,8 +90,8 @@ public final class Transit {
   if(pos.getY()<=world.getBottomY()||pos.getY()+1>=world.getTopY()||!world.getWorldBorder().contains(pos))return false;
   BlockPos floor=pos.down();var state=world.getBlockState(floor);
   if(!Block.sideCoversSmallSquare(world,floor,Direction.UP)||!world.getFluidState(floor).isEmpty()
-    ||state.isOf(Blocks.MAGMA_BLOCK)||state.isOf(Blocks.CACTUS)||state.isOf(Blocks.CAMPFIRE)||state.isOf(Blocks.SOUL_CAMPFIRE))return false;
-  for(int h=0;h<2;h++){BlockPos at=pos.up(h);if(!world.getFluidState(at).isEmpty()||!world.getBlockState(at).getCollisionShape(world,at).isEmpty()||world.getBlockState(at).isOf(Blocks.FIRE)||world.getBlockState(at).isOf(Blocks.SOUL_FIRE))return false;}
+    ||state.isOf(Blocks.MAGMA_BLOCK)||state.isOf(Blocks.CACTUS)||state.isOf(Blocks.CAMPFIRE)||state.isOf(Blocks.SOUL_CAMPFIRE)||state.isOf(Blocks.POWDER_SNOW))return false;
+  for(int h=0;h<2;h++){BlockPos at=pos.up(h);var atState=world.getBlockState(at);if(!world.getFluidState(at).isEmpty()||!atState.getCollisionShape(world,at).isEmpty()||atState.isOf(Blocks.FIRE)||atState.isOf(Blocks.SOUL_FIRE)||atState.isOf(Blocks.SWEET_BERRY_BUSH)||atState.isOf(Blocks.POWDER_SNOW))return false;}
   return true;
  }
  private static BlockPos findNearby(ServerWorld world,BlockPos original){

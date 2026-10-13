@@ -66,7 +66,7 @@ public final class InfrastructureMod implements ModInitializer {
   if(type.equals("entrance")){
    var n=eu.metroworld.infrastructure.world.StationGraph.nearestPortal(world.getSeed(),x,z);
    int ox=Math.floorDiv(Math.floorDiv(n.x(),8),16)*16+8,oz=Math.floorDiv(Math.floorDiv(n.z(),8),16)*16+8;
-   source.sendFeedback(()->Text.literal("Узел с выходом: метро ["+n.x()+", "+(n.y()+3)+", "+n.z()+"]. План павильона Overworld: ["+ox+", ~, "+oz+"]. Павильон появляется только на подходящей местности."),false);return 1;
+   source.sendFeedback(()->Text.literal("Узел с выходом: метро ["+n.x()+", "+(n.y()+3)+", "+n.z()+"]. План павильона Overworld: ["+ox+", ~, "+oz+"]. Павильон появляется только на подходящей местности. /execute in minecraft:overworld run tp @s "+ox+" ~ "+oz),false);return 1;
   }
   if(type.equals("spiral")){
    var at=eu.metroworld.infrastructure.world.NetworkPlan.nearestSpiral(world.getSeed(),x,z);

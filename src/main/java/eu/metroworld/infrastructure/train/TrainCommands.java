@@ -23,11 +23,20 @@ public final class TrainCommands {
     .then(CommandManager.argument("id",StringArgumentType.string()).executes(c->Trains.remove(c.getSource(),StringArgumentType.getString(c,"id"))));
   root.then(remove);
   root.then(CommandManager.literal("clear").requires(s->s.hasPermissionLevel(2)).executes(c->Trains.clearAll(c.getSource())));
-  var spawn=CommandManager.literal("spawn").requires(s->s.hasPermissionLevel(2));for(String type:new String[]{"blue","red","freight"})spawn.then(CommandManager.literal(type).executes(c->Trains.spawn(c.getSource().getPlayerOrThrow(),type)));root.then(spawn);
+  var spawn=CommandManager.literal("spawn").requires(s->s.hasPermissionLevel(2))
+    .executes(c->{c.getSource().sendFeedback(()->Text.literal("Использование: /metro-train spawn blue|red|freight"),false);return 1;});
+  for(String type:new String[]{"blue","red","freight"})spawn.then(CommandManager.literal(type).executes(c->Trains.spawn(c.getSource().getPlayerOrThrow(),type)));
+  root.then(spawn);
   root.then(CommandManager.literal("models").requires(s->s.hasPermissionLevel(2)).executes(c->TrainModels.list(c.getSource())));
   root.then(CommandManager.literal("validate").requires(s->s.hasPermissionLevel(2)).executes(c->TrainValidation.run(c.getSource())));
-  root.then(CommandManager.literal("model").requires(s->s.hasPermissionLevel(2)).then(CommandManager.argument("id",StringArgumentType.string()).then(CommandManager.argument("scale",DoubleArgumentType.doubleArg(.25,1)).executes(c->TrainModels.apply(c.getSource().getPlayerOrThrow(),StringArgumentType.getString(c,"id"),DoubleArgumentType.getDouble(c,"scale"))))));
-  var add=CommandManager.literal("add").requires(s->s.hasPermissionLevel(2));for(String type:new String[]{"locomotive","platform","container","metro_blue","metro_red"})add.then(CommandManager.literal(type).executes(c->Trains.add(c.getSource().getPlayerOrThrow(),type)));root.then(add);
+  var model=CommandManager.literal("model").requires(s->s.hasPermissionLevel(2))
+    .executes(c->{c.getSource().sendFeedback(()->Text.literal("Использование: /metro-train model <id> <масштаб 0.25..1.0> (список: /metro-train models)"),false);return 1;});
+  model.then(CommandManager.argument("id",StringArgumentType.string()).then(CommandManager.argument("scale",DoubleArgumentType.doubleArg(.25,1)).executes(c->TrainModels.apply(c.getSource().getPlayerOrThrow(),StringArgumentType.getString(c,"id"),DoubleArgumentType.getDouble(c,"scale")))));
+  root.then(model);
+  var add=CommandManager.literal("add").requires(s->s.hasPermissionLevel(2))
+    .executes(c->{c.getSource().sendFeedback(()->Text.literal("Использование: /metro-train add locomotive|platform|container|metro_blue|metro_red"),false);return 1;});
+  for(String type:new String[]{"locomotive","platform","container","metro_blue","metro_red"})add.then(CommandManager.literal(type).executes(c->Trains.add(c.getSource().getPlayerOrThrow(),type)));
+  root.then(add);
   dispatcher.register(root);
  }
 }
