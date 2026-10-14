@@ -63,6 +63,7 @@ public final class TrainModels {
  static Matrix4f local(JsonObject a){var r=vector(a,"rotation",new Vector3f()).mul((float)Math.PI/180);return new Matrix4f().translation(vector(a,"translation",new Vector3f())).rotateY(r.y).rotateX(r.x).rotateZ(r.z).scale(vector(a,"scale",new Vector3f(1)));}
  static final class Attachment {
   final JsonObject spec;final DisplayEntity.ItemDisplayEntity display;final ArmorStandEntity seat;final InteractionEntity hit;final String parent;Matrix4f matrix=new Matrix4f();
+  boolean initialized=false,lastVisible=false;final Matrix4f lastRotationScale=new Matrix4f();
   Attachment(JsonObject spec,DisplayEntity.ItemDisplayEntity display,ArmorStandEntity seat,InteractionEntity hit){this.spec=spec;this.display=display;this.seat=seat;this.hit=hit;parent=spec.has("parent")&&!spec.get("parent").isJsonNull()?spec.get("parent").getAsString():"";}
  }
  static List<Attachment> spawn(TrainRender render){var cart=cart(render.train.data,render.index);if(cart==null)return List.of();var result=new ArrayList<Attachment>();
@@ -76,12 +77,22 @@ public final class TrainModels {
   for(var a:attachments){var parent=matrices.getOrDefault(a.parent,root);a.matrix=new Matrix4f(parent).mul(local(a.spec));boolean visible=true;
    if(a.spec.has("animations"))for(var entry:a.spec.getAsJsonObject("animations").entrySet()){
     String name=entry.getKey().toLowerCase(Locale.ROOT);var animation=entry.getValue().getAsJsonObject();TrainAnimation.Frame frame=null;
+    boolean movement=(animation.has("movementControlled")&&animation.get("movementControlled").getAsBoolean())||name.contains("wheel");
     if(name.contains("doors_l")||name.contains("door_left"))frame=TrainAnimation.door(animation,render.leftAmount);
     else if(name.contains("doors_r")||name.contains("door_right"))frame=TrainAnimation.door(animation,render.rightAmount);
-    else if(animation.has("autoplay")&&animation.get("autoplay").getAsBoolean()||name.equals("wheel"))frame=TrainAnimation.sample(animation,render.animationTicks/20.0);
+    else if(movement||(animation.has("autoplay")&&animation.get("autoplay").getAsBoolean()))frame=TrainAnimation.sample(animation,movement?render.wheelDistance/2.5:render.animationTicks/20.0);
     if(frame!=null){a.matrix.mul(TrainAnimation.matrix(frame));visible&=frame.active();}
    }matrices.put(a.spec.get("id").getAsString(),a.matrix);
-   if(a.display!=null){var item=a.spec.getAsJsonObject("item");a.display.setItemStack(visible?ITEMS.get(item.get("model").getAsString()).asStack():ItemStack.EMPTY);var image=new Matrix4f(a.matrix).translate(vector(item,"displayTranslation",new Vector3f())).scale(vector(item,"displayScale",new Vector3f(1)));var position=image.getTranslation(new Vector3f());var at=pose.world(position.x,position.y,position.z);a.display.refreshPositionAndAngles(at[0],at[1],at[2],pose.yaw(),pose.pitch());a.display.setTransformation(new AffineTransformation(new Matrix4f(image).setTranslation(0,0,0)));}
+   if(a.display!=null){
+    var item=a.spec.getAsJsonObject("item");
+    if(!a.initialized||visible!=a.lastVisible){a.display.setItemStack(visible?ITEMS.get(item.get("model").getAsString()).asStack():ItemStack.EMPTY);a.lastVisible=visible;}
+    var image=new Matrix4f(a.matrix).translate(vector(item,"displayTranslation",new Vector3f())).scale(vector(item,"displayScale",new Vector3f(1)));
+    var position=image.getTranslation(new Vector3f());var at=pose.world(position.x,position.y,position.z);
+    a.display.refreshPositionAndAngles(at[0],at[1],at[2],pose.yaw(),pose.pitch());
+    var rotScale=new Matrix4f(image).setTranslation(0,0,0);
+    if(!a.initialized||!rotScale.equals(a.lastRotationScale,1e-4f)){a.display.setTransformation(new AffineTransformation(rotScale));a.lastRotationScale.set(rotScale);}
+    a.initialized=true;
+   }
    if(a.seat!=null){var pos=a.matrix.getTranslation(new Vector3f());var at=pose.world(pos.x,pos.y,pos.z);a.seat.refreshPositionAndAngles(at[0],at[1]-.15,at[2],pose.yaw(),pose.pitch());if(a.hit!=null)a.hit.refreshPositionAndAngles(at[0],at[1],at[2],pose.yaw(),pose.pitch());}
   }
  }

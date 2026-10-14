@@ -15,7 +15,7 @@ final class TrainRender {
  record Part(Entity entity,double x,double y,double z,boolean door,boolean left){}
  final List<Part> parts=new ArrayList<>();final List<ArmorStandEntity> seats=new ArrayList<>();
  final ServerWorld world;final Trains.Runtime train;final int index;final TrainCar car;
- int animationTicks;float leftAmount,rightAmount;
+ int animationTicks;float leftAmount,rightAmount;double wheelDistance;
  TrainPath.Pose pose;List<TrainModels.Attachment> imported=List.of();
  TrainRender(ServerWorld world,Trains.Runtime train,int index){this.world=world;this.train=train;this.index=index;car=train.data.cars.get(index);}
  void spawn(){
@@ -65,7 +65,7 @@ final class TrainRender {
  }
  void hit(double x,double y,double z,float width,float height,String action,int seat){var e=new InteractionEntity(EntityType.INTERACTION,world);e.setInteractionWidth(width);e.setInteractionHeight(height);Trains.HITS.put(e.getUuid(),new Trains.Hit(train.data.id,index,action,seat));add(e,x,y,z,false,false);}
  void add(Entity e,double x,double y,double z,boolean door,boolean left){e.addCommandTag(Trains.RENDER_TAG);e.setNoGravity(true);Trains.OWNED.add(e.getUuid());parts.add(new Part(e,x,y,z,door,left));}
- void move(TrainPath.Pose target){animationTicks++;leftAmount+=(train.data.control.leftDoors?1-leftAmount:-leftAmount)*.15f;rightAmount+=(train.data.control.rightDoors?1-rightAmount:-rightAmount)*.15f;pose=target;for(var p:parts){double offset=p.door&& (p.left?train.data.control.leftDoors:train.data.control.rightDoors)?(p.z<0?-1.25:1.25):0;var at=target.world(p.x,p.y,p.z+offset);p.entity.refreshPositionAndAngles(at[0],at[1],at[2],target.yaw(),target.pitch());if(p.entity instanceof DisplayEntity d){d.setYaw(target.yaw());d.setPitch(target.pitch());d.setBrightness(new Brightness(train.data.control.lights?15:4,0));}if(!p.entity.isRemoved()&&p.entity.getWorld().getEntityById(p.entity.getId())==null)world.spawnEntity(p.entity);}
+ void move(TrainPath.Pose target){animationTicks++;wheelDistance+=Math.abs(train.data.control.speed)/20.0;leftAmount+=(train.data.control.leftDoors?1-leftAmount:-leftAmount)*.15f;rightAmount+=(train.data.control.rightDoors?1-rightAmount:-rightAmount)*.15f;pose=target;for(var p:parts){double offset=p.door&& (p.left?train.data.control.leftDoors:train.data.control.rightDoors)?(p.z<0?-1.25:1.25):0;var at=target.world(p.x,p.y,p.z+offset);p.entity.refreshPositionAndAngles(at[0],at[1],at[2],target.yaw(),target.pitch());if(p.entity instanceof DisplayEntity d){d.setYaw(target.yaw());d.setPitch(target.pitch());d.setBrightness(new Brightness(train.data.control.lights?15:4,0));}if(!p.entity.isRemoved()&&p.entity.getWorld().getEntityById(p.entity.getId())==null)world.spawnEntity(p.entity);}
   if(!imported.isEmpty())TrainModels.update(this,imported,target);
  }
  void dispose(){for(var p:parts){p.entity.discard();Trains.HITS.remove(p.entity.getUuid());Trains.OWNED.remove(p.entity.getUuid());}parts.clear();seats.clear();}
