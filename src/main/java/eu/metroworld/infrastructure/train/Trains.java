@@ -106,11 +106,17 @@ public final class Trains {
  }
  static double gap(double a,double al,double b,double bl){return Math.max(a-al-b,b-bl-a);}
  private static boolean clear(ServerWorld world,Runtime train){
+  int lastCx=Integer.MIN_VALUE,lastCz=Integer.MIN_VALUE;
+  net.minecraft.world.chunk.WorldChunk chunk=null;
   for(int i=0;i<train.data.cars.size();i++){
    var pose=train.pose(i);double half=train.data.carLength(i)/2;
    for(double z=-half+.3;z<=half-.2;z+=1)for(double x:new double[]{-1.2,0,1.2})for(double y:new double[]{.35,1.3,2.5}){
-    var at=pose.world(x,y,z);var pos=BlockPos.ofFloored(at[0],at[1],at[2]);world.getChunk(Math.floorDiv(pos.getX(),16),Math.floorDiv(pos.getZ(),16));
-    if(!world.getBlockState(pos).getCollisionShape(world,pos).isEmpty())return false;
+    var at=pose.world(x,y,z);int bx=(int)Math.floor(at[0]),by=(int)Math.floor(at[1]),bz=(int)Math.floor(at[2]);
+    int cx=Math.floorDiv(bx,16),cz=Math.floorDiv(bz,16);
+    if(cx!=lastCx||cz!=lastCz){lastCx=cx;lastCz=cz;chunk=world.getChunkManager().getWorldChunk(cx,cz);}
+    if(chunk==null)return false;
+    var pos=new BlockPos(bx,by,bz);
+    if(!chunk.getBlockState(pos).getCollisionShape(world,pos).isEmpty())return false;
    }
   }return true;
  }
