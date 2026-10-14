@@ -11,11 +11,12 @@ public final class InfrastructureMod implements ModInitializer {
   InfrastructureBlocks.initialize();
   eu.metroworld.infrastructure.train.Trains.initialize();
   Escalators.initialize();
-  net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{eu.metroworld.infrastructure.train.Trains.load(server);Escalators.load(server);eu.metroworld.infrastructure.train.TrainModels.buildPack();});
-  net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server->{eu.metroworld.infrastructure.train.Trains.save(server);Escalators.save(server);});
+  net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{eu.metroworld.infrastructure.train.Trains.load(server);Escalators.load(server);Transit.load(server);eu.metroworld.infrastructure.train.TrainModels.buildPack();});
+  net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server->{eu.metroworld.infrastructure.train.Trains.save(server);Escalators.save(server);Transit.save(server);});
   net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server->{
    eu.metroworld.infrastructure.train.Trains.tick(server);
    Escalators.tick(server);
+   if(server.getTicks()%200==0)Transit.save(server);
    if(server.getTicks()%20!=0)return;
    MetroMusic.tick(server);
    for(var player:server.getPlayerManager().getPlayerList()){
@@ -27,7 +28,7 @@ public final class InfrastructureMod implements ModInitializer {
     if(server.getTicks()%1200==0)player.playSoundToPlayer(net.minecraft.sound.SoundEvents.AMBIENT_CAVE.value(),net.minecraft.sound.SoundCategory.AMBIENT,0.35f,0.85f);
    }
   });
-  net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server->{MetroMusic.reset();eu.metroworld.infrastructure.train.Trains.reset();Escalators.reset();});
+  net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server->{MetroMusic.reset();eu.metroworld.infrastructure.train.Trains.reset();Escalators.reset();Transit.reset();});
   CommandRegistrationCallback.EVENT.register((dispatcher,registries,environment)->{
    eu.metroworld.infrastructure.train.TrainCommands.register(dispatcher);
    Escalators.registerCommands(dispatcher);

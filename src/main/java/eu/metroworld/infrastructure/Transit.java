@@ -18,14 +18,32 @@ public final class Transit {
  public static final RegistryKey<World> UNDERGROUND=RegistryKey.of(RegistryKeys.WORLD,Identifier.of("metro-world","metro-world"));
  private static final String LEGACY_NAMESPACE="btr_infrastructure";
  public static boolean isNetworkWorld(net.minecraft.world.World w){var id=w.getRegistryKey().getValue();return id.equals(UNDERGROUND.getValue())||(id.getNamespace().equals(LEGACY_NAMESPACE)&&(id.getPath().equals("metro")||id.getPath().equals("underground")));}
- private static Path file(ServerPlayerEntity p){return p.getServer().getSavePath(WorldSavePath.ROOT).resolve("metro-world-return.properties");}
- private static Properties read(ServerPlayerEntity p)throws IOException{
-  Properties props=new Properties();
+ private static final Properties RETURN_POSITIONS=new Properties();
+ private static boolean dirty=false,loaded=false;
+ private static Path file(net.minecraft.server.MinecraftServer server){return server.getSavePath(WorldSavePath.ROOT).resolve("metro-world-return.properties");}
+ public static synchronized void load(net.minecraft.server.MinecraftServer server){
+  RETURN_POSITIONS.clear();dirty=false;loaded=true;
+  if(server==null)return;
   for(String legacyName:new String[]{"btr-return.properties","kessoku-return.properties"}){
-   Path legacy=file(p).resolveSibling(legacyName);
-   if(Files.exists(legacy))try(var in=Files.newInputStream(legacy)){props.load(in);}
+   Path legacy=file(server).resolveSibling(legacyName);
+   if(Files.exists(legacy))try(var in=Files.newInputStream(legacy)){RETURN_POSITIONS.load(in);}catch(IOException ignored){}
   }
-  Path path=file(p);if(Files.exists(path))try(var in=Files.newInputStream(path)){props.load(in);}return props;
+  Path path=file(server);if(Files.exists(path))try(var in=Files.newInputStream(path)){RETURN_POSITIONS.load(in);}catch(IOException ignored){}
+ }
+ public static synchronized void save(net.minecraft.server.MinecraftServer server){
+  if(!dirty||server==null)return;
+  Path path=file(server),tmp=path.resolveSibling("metro-world-return.properties.tmp");
+  try{
+   try(var out=Files.newOutputStream(tmp)){RETURN_POSITIONS.store(out,"Metro World return positions");}
+   try{Files.move(tmp,path,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}
+   catch(AtomicMoveNotSupportedException e){Files.move(tmp,path,StandardCopyOption.REPLACE_EXISTING);}
+   dirty=false;
+  }catch(IOException e){org.slf4j.LoggerFactory.getLogger("metro-world").error("Failed to save metro-world-return.properties",e);}
+ }
+ public static synchronized void reset(){RETURN_POSITIONS.clear();dirty=false;loaded=false;}
+ private static synchronized Properties getPositions(ServerPlayerEntity p){
+  if(!loaded&&p.getServer()!=null)load(p.getServer());
+  return RETURN_POSITIONS;
  }
  public static int enter(ServerPlayerEntity p){return enter(p,null);}
  public static int enter(ServerPlayerEntity p,BlockPos returnPos){
@@ -42,12 +60,10 @@ public final class Transit {
   target.getChunk(Math.floorDiv(arrivalX,16),Math.floorDiv(station.z()+8,16));
   BlockPos arrival=new BlockPos(arrivalX,station.y()+3,station.z()+8);
   if(!safeFeet(target,arrival)){p.sendMessage(Text.literal("Площадка станции недоступна. Переход отменён; обновите старое измерение метро."));return 0;}
-  try{
-   Properties props=read(p);props.setProperty(p.getUuidAsString(),p.getWorld().getRegistryKey().getValue()+","+(returnPos==null?p.getX():returnPos.getX()+0.5)+","+(returnPos==null?p.getY():returnPos.getY())+","+(returnPos==null?p.getZ():returnPos.getZ()+0.5)+","+p.getYaw()+","+p.getPitch()+","+station.x()+","+station.z()+","+station.y());
-   Path tmp=file(p).resolveSibling("metro-world-return.properties.tmp");
-   try(var out=Files.newOutputStream(tmp)){props.store(out,"Metro World return positions");}
-   Files.move(tmp,file(p),StandardCopyOption.REPLACE_EXISTING);
-  }catch(IOException e){p.sendMessage(Text.literal("Не удалось сохранить точку возвращения; переход отменён."));return 0;}
+  synchronized(RETURN_POSITIONS){
+   getPositions(p).setProperty(p.getUuidAsString(),p.getWorld().getRegistryKey().getValue()+","+(returnPos==null?p.getX():returnPos.getX()+0.5)+","+(returnPos==null?p.getY():returnPos.getY())+","+(returnPos==null?p.getZ():returnPos.getZ()+0.5)+","+p.getYaw()+","+p.getPitch()+","+station.x()+","+station.z()+","+station.y());
+   dirty=true;
+  }
   p.teleport(target,arrivalX+0.5,station.y()+3,station.z()+8.5,90,0);
   p.sendMessage(Text.literal("Метро: станция. Лифт возвращения — слева, чёрно-жёлтый блок. Высоты станций и тоннелей меняются по пути."));
   return 1;
@@ -55,10 +71,11 @@ public final class Transit {
  public static int leave(ServerPlayerEntity p){
   if(!isNetworkWorld(p.getWorld()))return 1;
   try{
-   String saved=read(p).getProperty(p.getUuidAsString());
+   String saved;synchronized(RETURN_POSITIONS){saved=getPositions(p).getProperty(p.getUuidAsString());}
    if(saved!=null){String[] s=saved.split(",");if(s.length<7)throw new IllegalArgumentException("Invalid return position");ServerWorld w=p.getServer().getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(s[0])));
     // Legacy saves have no anchor and keep their exact original return behaviour.
-    boolean atEntry=s.length<9||(Math.hypot(p.getX()-Double.parseDouble(s[7]),p.getZ()-Double.parseDouble(s[8]))<110&&(s.length<10||Math.abs(p.getY()-Double.parseDouble(s[9]))<100));
+    // s[6]=station.x, s[7]=station.z, s[8]=station.y
+    boolean atEntry=s.length<8||(Math.hypot(p.getX()-Double.parseDouble(s[6]),p.getZ()-Double.parseDouble(s[7]))<110&&(s.length<9||Math.abs(p.getY()-Double.parseDouble(s[8]))<100));
     if(w!=null&&atEntry){
      BlockPos original=BlockPos.ofFloored(Double.parseDouble(s[1]),Double.parseDouble(s[2]),Double.parseDouble(s[3]));
      BlockPos safe=findNearby(w,original);
@@ -66,7 +83,7 @@ public final class Transit {
      if(safe!=null){p.teleport(w,safe.getX()+0.5,safe.getY(),safe.getZ()+0.5,Float.parseFloat(s[4]),Float.parseFloat(s[5]));return 1;}
     }
    }
-  }catch(IOException|IllegalArgumentException e){p.sendMessage(Text.literal("Точка возвращения недоступна; ищем выход по масштабу 8:1."));}
+  }catch(IllegalArgumentException e){p.sendMessage(Text.literal("Точка возвращения недоступна; ищем выход по масштабу 8:1."));}
   ServerWorld w=p.getServer().getOverworld();
   int x=(int)Math.floor(TransitScale.toOverworld(p.getX())),z=(int)Math.floor(TransitScale.toOverworld(p.getZ()));
   BlockPos surface=findSurface(w,x,z);
