@@ -4,7 +4,7 @@ import eu.metroworld.infrastructure.world.TransitGeometry;
 /** Save format is deliberately independent of ephemeral render entities. */
 public final class TrainData {
  public String id=UUID.randomUUID().toString(),name="Метро",anchor="",model="";
- public eu.metroworld.infrastructure.world.StationGraph.Id destination;
+ public eu.metroworld.infrastructure.world.StationGraph.Id origin,destination;
  public boolean northSouth,freight;
  public List<String> routeAnchors=new ArrayList<>();
  public TrainPhysics control=new TrainPhysics();
