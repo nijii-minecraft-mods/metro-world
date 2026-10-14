@@ -2,9 +2,19 @@
 """Original numeric instrument textures; the actual readings are selected by the server."""
 from pathlib import Path
 import json
+import os
 from PIL import Image,ImageDraw,ImageFont
 root=Path(__file__).resolve().parents[1]/'src/main/resources/assets/btr_infrastructure'
-font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',18)
+
+def find_font():
+ env=os.environ.get('METRO_WORLD_FONT')
+ if env and Path(env).is_file():return Path(env)
+ for c in ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf','/usr/share/fonts/TTF/DejaVuSans-Bold.ttf','/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf','/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf','/usr/share/fonts/truetype/freefont/FreeSansBold.ttf','/System/Library/Fonts/Supplemental/Arial Bold.ttf','/Library/Fonts/Arial Bold.ttf','C:/Windows/Fonts/arialbd.ttf','C:/Windows/Fonts/seguiemb.ttf']:
+  p=Path(c)
+  if p.is_file():return p
+ raise FileNotFoundError('TTF font not found. Please install fonts-dejavu-core or set METRO_WORLD_FONT.')
+
+font=ImageFont.truetype(str(find_font()),18)
 for instrument,maximum in [('speed',44),('pressure',8),('traction',5),('brake',7)]:
  for value in range(maximum+1):
   name=f'train_{instrument}_{value}'

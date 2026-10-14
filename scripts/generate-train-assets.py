@@ -2,9 +2,19 @@
 """Rebuild original train panel art, item icons and block-display wagon blueprints."""
 from pathlib import Path
 import json
+import os
 from PIL import Image, ImageDraw, ImageFont
 ROOT=Path(__file__).resolve().parents[1]/'src/main/resources/assets/btr_infrastructure'
-FONT=Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
+
+def find_font():
+ env=os.environ.get('METRO_WORLD_FONT')
+ if env and Path(env).is_file():return Path(env)
+ for c in ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf','/usr/share/fonts/TTF/DejaVuSans-Bold.ttf','/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf','/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf','/usr/share/fonts/truetype/freefont/FreeSansBold.ttf','/System/Library/Fonts/Supplemental/Arial Bold.ttf','/Library/Fonts/Arial Bold.ttf','C:/Windows/Fonts/arialbd.ttf','C:/Windows/Fonts/seguiemb.ttf']:
+  p=Path(c)
+  if p.is_file():return p
+ raise FileNotFoundError('TTF font not found. Please install fonts-dejavu-core or set METRO_WORLD_FONT.')
+
+FONT=find_font()
 def save_json(path,data):
  path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
 def panel():
