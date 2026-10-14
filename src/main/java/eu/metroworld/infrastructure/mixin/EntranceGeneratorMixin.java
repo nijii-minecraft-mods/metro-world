@@ -56,12 +56,19 @@ public abstract class EntranceGeneratorMixin {
   }
  }
  private void metroWorld$plannedEntrance(StructureWorldAccess world,Chunk chunk){
-  int cx=chunk.getPos().getStartX()+8,cz=chunk.getPos().getStartZ()+8;
-  NetworkPlan.Node anchor;
-  try{anchor=eu.metroworld.infrastructure.world.StationGraph.nearestPortal(world.getSeed(),cx*8.0,cz*8.0);}
-  catch(IllegalStateException unavailable){return;}
+  int rx=Math.floorDiv(chunk.getPos().x,32),rz=Math.floorDiv(chunk.getPos().z,32);
+  eu.metroworld.infrastructure.world.StationGraph.Vertex candidate=null;
+  for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++){
+   for(var v:eu.metroworld.infrastructure.world.StationGraph.vertices(world.getSeed(),rx+dx,rz+dz)){
+    if(v.portal()&&Math.floorDiv(Math.floorDiv(v.node().x(),8),16)==chunk.getPos().x&&Math.floorDiv(Math.floorDiv(v.node().z(),8),16)==chunk.getPos().z){
+     candidate=v;break;
+    }
+   }
+   if(candidate!=null)break;
+  }
+  if(candidate==null||eu.metroworld.infrastructure.world.StationGraph.incident(world.getSeed(),candidate).isEmpty())return;
+  NetworkPlan.Node anchor=candidate.node();
   int x=Math.floorDiv(Math.floorDiv(anchor.x(),8),16)*16+8,z=Math.floorDiv(Math.floorDiv(anchor.z(),8),16)*16+8;
-  if(Math.floorDiv(x,16)!=chunk.getPos().x||Math.floorDiv(z,16)!=chunk.getPos().z)return;
   int y=Integer.MIN_VALUE;
   // Try several clear sites inside the owning chunk instead of losing an entrance to one uneven column.
   search: for(int[] offset:new int[][]{{0,0},{-4,0},{4,0},{0,-4},{0,4},{-4,-4},{4,4},{-4,4},{4,-4}}){
