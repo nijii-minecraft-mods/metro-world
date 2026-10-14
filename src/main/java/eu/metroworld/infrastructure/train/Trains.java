@@ -66,7 +66,7 @@ public final class Trains {
  }
  public static Runtime nearest(ServerPlayerEntity p){Runtime best=null;double distance=196;for(var t:TRAINS.values())if(t.nearby(p))for(int i=0;i<t.data.cars.size();i++){var pose=t.pose(i);double d=p.squaredDistanceTo(pose.x(),pose.y(),pose.z());if(d<distance){distance=d;best=t;}}return best;}
  public static void load(MinecraftServer server){reset();var world=server.getWorld(Transit.UNDERGROUND);if(world==null)return;Path file=savePath(server);if(!Files.exists(file))return;
-  try{List<TrainData> data=JSON.fromJson(Files.readString(file),new TypeToken<List<TrainData>>(){}.getType());if(data==null||data.size()>48)throw new IllegalArgumentException("train count");for(var d:data){if(d.cars==null||d.cars.isEmpty()||d.cars.size()>6||d.control==null)throw new IllegalArgumentException("invalid consist");if(TRAINS.containsKey(d.id))throw new IllegalArgumentException("duplicate train id");var t=new Runtime(d,world);d.control.position=Math.max(d.length(),Math.min(t.path.length,d.control.position));d.control.speed=0;d.control.traction=0;d.control.brake=7;TRAINS.put(d.id,t);}}
+  try{List<TrainData> data=JSON.fromJson(Files.readString(file),new TypeToken<List<TrainData>>(){}.getType());if(data==null||data.size()>48)throw new IllegalArgumentException("train count");for(var d:data){if(d.cars==null||d.cars.isEmpty()||d.cars.size()>6||d.control==null)throw new IllegalArgumentException("invalid consist");if(TRAINS.containsKey(d.id))throw new IllegalArgumentException("duplicate train id");if(!d.points.isEmpty()&&Math.abs(d.points.get(0).x()-(int)Math.floor(d.points.get(0).x()))<1e-4){var shifted=new ArrayList<TransitGeometry.Point>();for(var pt:d.points)shifted.add(new TransitGeometry.Point(pt.x()+0.5,pt.y(),pt.z()+0.5));d.points=shifted;}var t=new Runtime(d,world);d.control.position=Math.max(d.length(),Math.min(t.path.length,d.control.position));d.control.speed=0;d.control.traction=0;d.control.brake=7;TRAINS.put(d.id,t);}}
   catch(Exception e){saveAllowed=false;throw new IllegalStateException("Metro World refuses to overwrite corrupt train save "+file,e);}
  }
  private static Path savePath(MinecraftServer s){return s.getSavePath(WorldSavePath.ROOT).resolve("metro-world-trains.json");}
@@ -83,6 +83,9 @@ public final class Trains {
    t.show(world);var old=new ArrayList<TrainPath.Pose>();for(int i=0;i<t.data.cars.size();i++)old.add(t.pose(i));
    if(!t.data.hasTraction()){t.data.control.power=false;t.data.control.compressor=false;t.data.control.traction=0;}
    extend(world,t);
+   for(int i=0;i<t.data.cars.size();i++){
+    var pose=t.pose(i);ChunkPos chunk=new ChunkPos(BlockPos.ofFloored(pose.x(),pose.y(),pose.z()));world.getChunkManager().addTicket(TICKET,chunk,2,t.data.id);world.getChunk(chunk.x,chunk.z);
+   }
    double before=t.data.control.position;t.data.control.tick(.05,t.data.length()+2,t.path.length-2,t.path.at(before).grade());
    // Compare occupied intervals, so a split consist can move apart but cannot overlap.
    for(var other:TRAINS.values())if(other!=t&&t.path.same(other.path)){
@@ -97,8 +100,7 @@ public final class Trains {
    }
    if(occupied||!clear(world,t)){t.data.control.position=before;t.data.control.speed=0;t.data.control.traction=0;t.data.control.brake=7;}
    for(int i=0;i<t.render.size();i++){
-    var pose=t.pose(i);ChunkPos chunk=new ChunkPos(BlockPos.ofFloored(pose.x(),pose.y(),pose.z()));world.getChunkManager().addTicket(TICKET,chunk,2,t.data.id);world.getChunk(chunk.x,chunk.z);
-    carry(server,t,i,old.get(i),pose);t.render.get(i).move(pose);
+    carry(server,t,i,old.get(i),t.pose(i));t.render.get(i).move(t.pose(i));
    }
   }
   if(server.getTicks()%100==0){for(var p:server.getPlayerManager().getPlayerList())if(Transit.isNetworkWorld(p.getWorld()))autoSpawn(p);}
@@ -110,7 +112,7 @@ public final class Trains {
   net.minecraft.world.chunk.WorldChunk chunk=null;
   for(int i=0;i<train.data.cars.size();i++){
    var pose=train.pose(i);double half=train.data.carLength(i)/2;
-   for(double z=-half+.3;z<=half-.2;z+=1)for(double x:new double[]{-1.2,0,1.2})for(double y:new double[]{.35,1.3,2.5}){
+   for(double z=-half+.3;z<=half-.2;z+=1)for(double x:new double[]{-1.15,0,1.15})for(double y:new double[]{.4,1.3,2.4}){
     var at=pose.world(x,y,z);int bx=(int)Math.floor(at[0]),by=(int)Math.floor(at[1]),bz=(int)Math.floor(at[2]);
     int cx=Math.floorDiv(bx,16),cz=Math.floorDiv(bz,16);
     if(cx!=lastCx||cz!=lastCz){lastCx=cx;lastCz=cz;chunk=world.getChunkManager().getWorldChunk(cx,cz);}
@@ -128,6 +130,7 @@ public final class Trains {
    if(!ours){if((entry!=null&&TRAINS.containsKey(entry.train))||Math.abs(local[0])>1.15||Math.abs(local[2])>train.data.carLength(index)/2||local[1]<-.15||local[1]>.35)continue;
     boolean floor=worldFloor(p);if(!floor)continue;BOARDING.put(p.getUuid(),new Boarding(train.data.id,index));}
    if(Math.abs(local[0])>1.65||Math.abs(local[2])>train.data.carLength(index)/2+1.2||local[1]<-1||local[1]>3.5){BOARDING.remove(p.getUuid());continue;}
+   if(train.data.control.stopped())continue;
    double lateral=local[0];if(!train.data.control.leftDoors&&!train.data.control.rightDoors)lateral=Math.max(-1.05,Math.min(1.05,lateral));
    var at=next.world(lateral,local[1],local[2]);
    if(Math.abs(at[0]-p.getX())+Math.abs(at[1]-p.getY())+Math.abs(at[2]-p.getZ())>.001)p.networkHandler.requestTeleport(at[0],at[1],at[2],p.getYaw(),p.getPitch());

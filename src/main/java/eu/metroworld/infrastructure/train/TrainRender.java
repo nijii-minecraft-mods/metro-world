@@ -51,7 +51,7 @@ final class TrainRender {
   box(Blocks.BLACK_CONCRETE.getDefaultState(),-1,-.7,-half*.6-.7,2,.35,1.4);
   box(Blocks.BLACK_CONCRETE.getDefaultState(),-1,-.7,half*.6-.7,2,.35,1.4);
   if(car.cargo())hit(0,.3,0,2.7f,2.5f,"cargo",0);
-  hit(0,.3,half+.25,1.2f,.8f,"couple",0);
+  if(index==0)hit(0,.3,half+.25,1.2f,.8f,"couple",0);
   // Collision floor is vanilla-compatible; seating is independent of floor transport.
   for(int z=-(int)half;z<half+1;z++)for(int x=-1;x<=1;x++){
    var anchor=new DisplayEntity.BlockDisplayEntity(EntityType.BLOCK_DISPLAY,world);anchor.setBlockState(Blocks.AIR.getDefaultState());anchor.setTeleportDuration(1);add(anchor,x,-1,z+.5,false,false);
