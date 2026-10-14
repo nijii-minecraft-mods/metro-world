@@ -56,6 +56,7 @@ public final class TrainModels {
   double total=lengths.stream().mapToDouble(v->v+1).sum()-1;if(total+4>=t.path.length)return 0;
   t.hide();t.data.cars.clear();t.data.lengths.clear();t.data.inventories.clear();t.cargo.clear();t.data.model=id;t.data.modelScale=scale;t.data.modelIds.clear();t.data.modelIndices.clear();t.data.modelScales.clear();
   for(var cart:carts){double length=cart.getAsJsonObject().get("length").getAsDouble()*scale;t.data.modelIndices.add(t.data.cars.size());t.data.modelIds.add(id);t.data.modelScales.add(scale);t.data.cars.add(TrainCar.METRO_BLUE);t.data.lengths.add(length);t.cargo.add(new net.minecraft.inventory.SimpleInventory(54));}
+  Trains.clampBoarding(t.data.id,carts.size());
   t.data.control.position=Math.max(t.data.length()+2,t.data.control.position);Trains.save(p.getServer());p.sendMessage(Text.literal("Модель "+id+" применена. Неподдержанные вложения смотрите в diagnostics импортёра."));return 1;
  }
  static Vector3f vector(JsonObject obj,String key,Vector3f fallback){if(!obj.has(key))return new Vector3f(fallback);var a=obj.getAsJsonArray(key);return new Vector3f(a.get(0).getAsFloat(),a.get(1).getAsFloat(),a.get(2).getAsFloat());}

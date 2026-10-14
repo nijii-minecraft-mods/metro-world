@@ -43,7 +43,20 @@ public final class Trains {
   TrainPath.Pose pose(int car){return path.at(data.control.position-data.carOffset(car));}
   public boolean nearby(ServerPlayerEntity player){if(!Transit.isNetworkWorld(player.getWorld()))return false;for(int i=0;i<data.cars.size();i++){var p=pose(i);if(player.squaredDistanceTo(p.x(),p.y(),p.z())<196)return true;}return false;}
   void show(ServerWorld world){if(!render.isEmpty())return;for(int i=0;i<data.cars.size();i++){var car=new TrainRender(world,this,i);car.spawn();render.add(car);car.move(pose(i));}}
-  void hide(){for(var car:render)car.dispose();render.clear();}
+  void hide(){
+   for(int i=0;i<render.size();i++){
+    var r=render.get(i);
+    for(var seat:r.seats)for(var passenger:new ArrayList<>(seat.getPassengerList())){
+     if(passenger instanceof ServerPlayerEntity player){
+      player.stopRiding();
+      var at=pose(i).world(0,.05,0);
+      player.requestTeleport(at[0],at[1],at[2]);
+      BOARDING.put(player.getUuid(),new Boarding(data.id,i));
+     }
+    }
+   }
+   for(var car:render)car.dispose();render.clear();
+  }
   void encodeCargo(ServerWorld world){data.inventories.clear();for(var inv:cargo){var root=new NbtCompound();var list=new NbtList();for(int slot=0;slot<54;slot++)if(!inv.getStack(slot).isEmpty()){var entry=new NbtCompound();entry.putInt("Slot",slot);entry.put("Stack",inv.getStack(slot).encode(world.getRegistryManager()));list.add(entry);}root.put("Items",list);data.inventories.add(root.toString());}}
  }
  public static void initialize(){
@@ -58,6 +71,7 @@ public final class Trains {
  }
  private static Path savePath(MinecraftServer s){return s.getSavePath(WorldSavePath.ROOT).resolve("metro-world-trains.json");}
  public static void save(MinecraftServer server){if(!saveAllowed)return;var world=server.getWorld(Transit.UNDERGROUND);if(world==null)return;try{for(var t:TRAINS.values())t.encodeCargo(world);Path file=savePath(server),tmp=file.resolveSibling(file.getFileName()+".tmp");Files.writeString(tmp,JSON.toJson(TRAINS.values().stream().map(t->t.data).toList()));try{Files.move(tmp,file,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}catch(AtomicMoveNotSupportedException e){Files.move(tmp,file,StandardCopyOption.REPLACE_EXISTING);}}catch(Exception e){throw new IllegalStateException("Cannot save metro trains",e);}}
+ public static void clampBoarding(String trainId,int maxCars){for(var e:new ArrayList<>(BOARDING.entrySet()))if(e.getValue().train.equals(trainId)&&e.getValue().car>=maxCars)BOARDING.put(e.getKey(),new Boarding(trainId,Math.max(0,maxCars-1)));}
  public static void reset(){for(var t:TRAINS.values())t.hide();TRAINS.clear();BOARDING.clear();OWNED.clear();HITS.clear();saveAllowed=true;TrainPanel.reset();}
  public static void tick(MinecraftServer server){var world=server.getWorld(Transit.UNDERGROUND);if(world==null)return;
   BOARDING.entrySet().removeIf(e->{var p=server.getPlayerManager().getPlayer(e.getKey());return p==null||!Transit.isNetworkWorld(p.getWorld())||!TRAINS.containsKey(e.getValue().train);});
