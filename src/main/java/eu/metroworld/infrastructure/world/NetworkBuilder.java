@@ -11,9 +11,12 @@ import net.minecraft.world.chunk.Chunk;
 /** Rasterizes architecture and curved tubes before touching the chunk: explicit merge priorities. */
 public final class NetworkBuilder {
  private static final BlockState AIR=Blocks.AIR.getDefaultState();
+ public enum SignKind { STATION, SECRET, BOTANICAL, QUARANTINE }
+ public record SignSpec(String title, SignKind kind) {}
  private static final class Canvas {
-  final Chunk chunk;final int sx,sz,bottom,height;final BlockState[] states;final byte[] priorities;final java.util.Map<BlockPos,String> signs=new java.util.HashMap<>();final java.util.Map<BlockPos,String> loot=new java.util.HashMap<>();
+  final Chunk chunk;final int sx,sz,bottom,height;final BlockState[] states;final byte[] priorities;final java.util.Map<BlockPos,SignSpec> signs=new java.util.HashMap<>();final java.util.Map<BlockPos,String> loot=new java.util.HashMap<>();
   Canvas(Chunk chunk){this.chunk=chunk;sx=chunk.getPos().getStartX();sz=chunk.getPos().getStartZ();bottom=chunk.getBottomY();height=chunk.getHeight();states=new BlockState[height*256];priorities=new byte[states.length];}
+  void sign(BlockPos pos,String title,SignKind kind){signs.put(pos,new SignSpec(title,kind));}
   void put(int x,int y,int z,BlockState state,int priority){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return;int i=(y-bottom)*256+(z-sz)*16+x-sx;if(priority>=priorities[i]){states[i]=state;priorities[i]=(byte)priority;}}
   BlockState peek(int x,int y,int z){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return null;return states[(y-bottom)*256+(z-sz)*16+x-sx];}
   void box(int x1,int x2,int y1,int y2,int z1,int z2,BlockState state,int priority){for(int x=Math.max(sx,x1);x<=Math.min(sx+15,x2);x++)for(int z=Math.max(sz,z1);z<=Math.min(sz+15,z2);z++)for(int y=y1;y<=y2;y++)put(x,y,z,state,priority);}
@@ -25,10 +28,11 @@ public final class NetworkBuilder {
     container.setLootTableSeed(NetworkPlan.hash(seed,x,z,y));chunk.setBlockEntity(container);
    }
    if(state.isOf(Blocks.OAK_WALL_SIGN)){
-    String name=signs.getOrDefault(pos.toImmutable(),"Метро");
-    boolean secret=name.equals("Тайная остановка")||name.equals("Заброшенное депо")||name.equals("Техническая галерея");
-    boolean botanical=name.equals("Теплица")||name.equals("Банк семян")||name.equals("Биолаборатория")||name.equals("Заросший питомник");
-    boolean quarantine=name.equals("Карантинный блок");
+    SignSpec spec=signs.getOrDefault(pos.toImmutable(),new SignSpec("Метро",SignKind.STATION));
+    String name=spec.title();
+    boolean secret=spec.kind()==SignKind.SECRET;
+    boolean botanical=spec.kind()==SignKind.BOTANICAL;
+    boolean quarantine=spec.kind()==SignKind.QUARANTINE;
     SignText text=new SignText().withMessage(0,net.minecraft.text.Text.literal(name))
      .withMessage(1,net.minecraft.text.Text.literal(quarantine?"Опасно: заражённые":secret?"Ветка закрыта":botanical?"Исследовательский сектор":"← Лифт / выход"))
      .withMessage(2,net.minecraft.text.Text.literal(quarantine||secret?"Осмотрите хранилище":botanical?"Назад → станция":"Переходы →")).withGlowing(true);
@@ -84,7 +88,7 @@ public final class NetworkBuilder {
    c.put(x,n.y()+h,z,state,state.isAir()?43:42);
   }
   String name=kind==NetworkPlan.StationKind.MIXED?"Пассажирско-грузовая":s.interchange()?kind==NetworkPlan.StationKind.TERMINAL?"Вокзал / пересадка":"Пересадочная":switch(kind){case MINI->"Малая станция";case TERMINAL->"Вокзал";case FREIGHT->"Грузовой терминал";case BIOCENTER->"Биоцентр / купол";default->"Пассажирская";};
-  BlockPos signPos=local(s,0,6,width-1);c.signs.put(signPos,name);
+  BlockPos signPos=local(s,0,6,width-1);c.sign(signPos,name,SignKind.STATION);
   localPut(c,s,0,6,width,Blocks.SMOOTH_QUARTZ.getDefaultState(),50);
   localPut(c,s,0,6,width-1,Blocks.OAK_WALL_SIGN.getDefaultState().with(WallSignBlock.FACING,Direction.NORTH),50);
   localPut(c,s,2,2,8,Blocks.SMOOTH_QUARTZ.getDefaultState(),50);
@@ -135,7 +139,7 @@ public final class NetworkBuilder {
    if(state.isOf(Blocks.CHEST)||state.isOf(Blocks.BARREL))c.loot.put(new BlockPos(x,worldY,z),table);
   }
   String name=switch(spec.kind()){case GREENHOUSE->"Теплица";case SEED_BANK->"Банк семян";case LABORATORY->"Биолаборатория";case OVERGROWN_NURSERY->"Заросший питомник";};
-  BlockPos sign=new BlockPos(n.x()+spec.offsetX()+4,n.y()+7,n.z()+spec.offsetZ()+spec.halfLength());c.signs.put(sign,name);
+  BlockPos sign=new BlockPos(n.x()+spec.offsetX()+4,n.y()+7,n.z()+spec.offsetZ()+spec.halfLength());c.sign(sign,name,SignKind.BOTANICAL);
   c.put(sign.getX(),sign.getY(),sign.getZ(),Blocks.OAK_WALL_SIGN.getDefaultState().with(WallSignBlock.FACING,Direction.SOUTH),50);
   var dome=DomeDesign.spec(s.salt());var route=TransitGeometry.rounded(java.util.List.of(
     new TransitGeometry.Point(n.x()+dome.innerRadius()-5,n.y()+2,n.z()-62),
@@ -164,7 +168,7 @@ public final class NetworkBuilder {
    }
   }
   String name=switch(spec.kind()){case SECRET_STOP->"Тайная остановка";case QUARANTINE->"Карантинный блок";case ABANDONED_DEPOT->"Заброшенное депо";case UTILITY->"Техническая галерея";};
-  BlockPos sign=local(s,-105,7,83);c.signs.put(sign,name);
+  BlockPos sign=local(s,-105,7,83);c.sign(sign,name,spec.kind()==SideBranchDesign.Kind.QUARANTINE?SignKind.QUARANTINE:SignKind.SECRET);
   localPut(c,s,-105,7,83,Blocks.OAK_WALL_SIGN.getDefaultState().with(WallSignBlock.FACING,Direction.NORTH),50);
  }
  private static void path(Canvas c,NetworkPlan.Path p){double length=p.route().length();RailPlan railPlan=p.service()?null:(p.singleTrack()?RailPlan.ofSingle(p.route()):RailPlan.of(p.route()));
