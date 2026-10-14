@@ -33,9 +33,24 @@ public final class MetroMusic {
     // Stop client-selected music before starting our one private track.
     p.networkHandler.sendPacket(new StopSoundS2CPacket(null,SoundCategory.MUSIC));
     RegistryEntry<SoundEvent> event=SoundEvents.MUSIC_OVERWORLD_DEEP_DARK;
-    var plan=NetworkPlan.forChunk(p.getServerWorld().getSeed(),p.getChunkPos().getStartX(),p.getChunkPos().getStartZ());
-    if(plan.stations().stream().anyMatch(st->st.kind()==NetworkPlan.StationKind.BIOCENTER))event=SoundEvents.MUSIC_OVERWORLD_LUSH_CAVES;
-    else if(plan.paths().stream().anyMatch(NetworkPlan.Path::freight))event=SoundEvents.MUSIC_OVERWORLD_DRIPSTONE_CAVES;
+    long seed=p.getServerWorld().getSeed();
+    int rx=Math.floorDiv((int)Math.floor(p.getX()),StationGraph.REGION),rz=Math.floorDiv((int)Math.floor(p.getZ()),StationGraph.REGION);
+    boolean biocenter=false;
+    for(int dx=-1;dx<=1&&!biocenter;dx++)for(int dz=-1;dz<=1&&!biocenter;dz++){
+     for(var v:StationGraph.vertices(seed,rx+dx,rz+dz)){
+      if(NetworkPlan.station(seed,v,false).kind()==NetworkPlan.StationKind.BIOCENTER&&Math.hypot(p.getX()-v.node().x(),p.getZ()-v.node().z())<140){
+       biocenter=true;break;
+      }
+     }
+    }
+    if(biocenter)event=SoundEvents.MUSIC_OVERWORLD_LUSH_CAVES;
+    else{
+     for(var e:StationGraph.nearbyEdges(seed,p.getX(),p.getZ())){
+      if(e.freight()&&distanceToEdge(p.getX(),p.getZ(),e.a().node(),e.b().node())<64){
+       event=SoundEvents.MUSIC_OVERWORLD_DRIPSTONE_CAVES;break;
+      }
+     }
+    }
     sound=event.value().getId();
     // Attach to the listener entity so walking or riding cannot leave the soundtrack behind.
     p.networkHandler.sendPacket(new PlaySoundFromEntityS2CPacket(event,SoundCategory.MUSIC,p,.22f,1.0f,now^p.getUuid().getLeastSignificantBits()));
@@ -43,6 +58,12 @@ public final class MetroMusic {
    SESSIONS.put(id,new Session(decision.state(),sound));
   }
   SESSIONS.keySet().retainAll(connected);
+ }
+ private static double distanceToEdge(double px,double pz,NetworkPlan.Node a,NetworkPlan.Node b){
+  double vx=b.x()-a.x(),vz=b.z()-a.z(),lenSq=vx*vx+vz*vz;
+  if(lenSq<1e-6)return Math.hypot(px-a.x(),pz-a.z());
+  double t=Math.max(0,Math.min(1,((px-a.x())*vx+(pz-a.z())*vz)/lenSq));
+  return Math.hypot(px-(a.x()+t*vx),pz-(a.z()+t*vz));
  }
  public static void reset(){SESSIONS.clear();}
  private MetroMusic(){}
