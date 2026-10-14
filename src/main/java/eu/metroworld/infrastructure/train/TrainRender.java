@@ -29,7 +29,7 @@ final class TrainRender {
     for(boolean left:new boolean[]{true,false}){
      double x=left?-1.4:1.3;
      for(int z=-(int)half;z<(int)half;z++){
-      boolean door=Math.abs(z)<=1;
+      boolean door=z==-1||z==0;
       box(color,x,0,z,.1,.6,1);
       if(!door){box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,z,.1,1.25,1);box(color,x,1.85,z,.1,.65,1);}
       else boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,z,.1,1.9,1,left);
