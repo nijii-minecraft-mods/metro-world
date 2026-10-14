@@ -112,7 +112,12 @@ public final class Escalators {
  private static int disable(ServerCommandSource source)throws com.mojang.brigadier.exceptions.CommandSyntaxException{
   var player=source.getPlayerOrThrow();String dimension=player.getWorld().getRegistryKey().getValue().toString();
   Placement nearest=null;double distance=64*64;
-  for(var p:PLACEMENTS)if(p.dimension().equals(dimension)){double d=player.squaredDistanceTo(p.plan().x()+.5,p.plan().y(),p.plan().z()+.5);if(d<distance){nearest=p;distance=d;}}
+  for(var p:PLACEMENTS)if(p.dimension().equals(dimension)){
+   var plan=p.plan();double t=Math.max(0,Math.min(plan.length(),plan.along(player.getX(),player.getZ())));
+   double x=plan.x()+.5+plan.dx()*(t-.5),z=plan.z()+.5+plan.dz()*(t-.5);
+   double d=player.squaredDistanceTo(x,plan.floorHeight(t),z);
+   if(d<distance){nearest=p;distance=d;}
+  }
   if(nearest==null){source.sendError(Text.literal("Рядом нет зарегистрированного эскалатора."));return 0;}
   PLACEMENTS.remove(nearest);save(player.getServer());source.sendFeedback(()->Text.literal("Перенос отключён. Ступени сохранены как обычная лестница."),false);return 1;
  }
@@ -127,7 +132,6 @@ public final class Escalators {
   }catch(IOException|RuntimeException e){loadFailed=true;org.slf4j.LoggerFactory.getLogger("metro-world").error("Escalators not loaded; original JSON retained",e);}
  }
  public static void save(MinecraftServer server){
-  clearVisuals();
   if(loadFailed)return; // Do not overwrite a malformed persistence file with an empty placement list.
   JsonArray entries=new JsonArray();for(var placement:PLACEMENTS){var p=placement.plan();var o=new JsonObject();o.addProperty("dimension",placement.dimension());o.addProperty("x",p.x());o.addProperty("y",p.y());o.addProperty("z",p.z());o.addProperty("dx",p.dx());o.addProperty("dz",p.dz());o.addProperty("rise",p.rise());o.addProperty("descending",p.descending());entries.add(o);}
   Path path=file(server),tmp=path.resolveSibling(path.getFileName()+".tmp");try{
