@@ -132,6 +132,14 @@ class TrainCartsImportTest(unittest.TestCase):
         diagnostics=[]
         self.assertEqual(pack.resolve_item("minecraft:golden_pickaxe",100000001,0,False,diagnostics,"root"),"test:train/door")
 
+    def test_durability_resolution_for_hoes_and_shears(self):
+        pack=importer.ResourcePack(self.pack())
+        pack.models["minecraft:item/diamond_hoe"]={"overrides":[
+            {"predicate":{"damage":0.5},"model":"test:train/hoe_half"}]}
+        pack.models["test:train/hoe_half"]={}
+        diagnostics=[]
+        self.assertEqual(pack.resolve_item("minecraft:diamond_hoe",0,800,False,diagnostics,"root"),"test:train/hoe_half")
+
     def test_animation_active_and_movement_control_are_preserved(self):
         result=importer.normalise_animations({"move":{"nodes":["t=0.25 active=0 yaw=90 scene=stop","t=0 active=1"],"movementControlled":True,"speed":.2,"autoplay":True}},"root",[])
         self.assertFalse(result["move"]["frames"][0]["active"])

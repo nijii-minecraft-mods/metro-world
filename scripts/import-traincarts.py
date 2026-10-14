@@ -116,6 +116,17 @@ def resource_id(value):
     return value
 
 
+TOOL_DURABILITY = {
+    "wooden_sword": 59, "stone_sword": 131, "iron_sword": 250, "golden_sword": 32, "diamond_sword": 1561, "netherite_sword": 2031,
+    "wooden_pickaxe": 59, "stone_pickaxe": 131, "iron_pickaxe": 250, "golden_pickaxe": 32, "diamond_pickaxe": 1561, "netherite_pickaxe": 2031,
+    "wooden_shovel": 59, "stone_shovel": 131, "iron_shovel": 250, "golden_shovel": 32, "diamond_shovel": 1561, "netherite_shovel": 2031,
+    "wooden_axe": 59, "stone_axe": 131, "iron_axe": 250, "golden_axe": 32, "diamond_axe": 1561, "netherite_axe": 2031,
+    "wooden_hoe": 59, "stone_hoe": 131, "iron_hoe": 250, "golden_hoe": 32, "diamond_hoe": 1561, "netherite_hoe": 2031,
+    "shears": 238, "fishing_rod": 64, "flint_and_steel": 64, "carrot_on_a_stick": 25, "warped_fungus_on_a_stick": 100,
+    "shield": 336, "bow": 384, "crossbow": 465, "trident": 250, "mace": 500,
+}
+
+
 class ResourcePack:
     def __init__(self, path):
         if path.stat().st_size > MAX_ZIP_BYTES:
@@ -167,7 +178,7 @@ class ResourcePack:
         model = self.models.get(base)
         if model:
             predicates = {"custom_model_data": cmd, "damaged": 0 if unbreakable or damage == 0 else 1}
-            durability = {"golden_pickaxe": 32, "golden_sword": 32, "iron_pickaxe": 250, "diamond_pickaxe": 1561, "netherite_pickaxe": 2031}.get(name)
+            durability = TOOL_DURABILITY.get(name)
             if durability:
                 predicates["damage"] = min(1, damage / durability)
             for override in model.get("overrides", []):
