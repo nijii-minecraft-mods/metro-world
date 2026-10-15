@@ -7,6 +7,7 @@ import net.minecraft.item.*;
 import net.minecraft.screen.*;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.*;
 import net.minecraft.util.Identifier;
 /** Vanilla container protocol, Polymer resource-pack skin; no client screen class required. */
@@ -33,14 +34,34 @@ public final class TrainPanel extends GenericContainerScreenHandler {
   button(37,Items.IRON_DOOR,"Левые двери: "+(c.leftDoors?"ОТКРЫТЫ":"ЗАКРЫТЫ"),"doors");button(40,Items.IRON_DOOR,"Правые двери: "+(c.rightDoors?"ОТКРЫТЫ":"ЗАКРЫТЫ"),"doors");
   button(43,Items.SEA_LANTERN,"Свет: "+(c.lights?"ВКЛ":"ВЫКЛ"),"lights");
  }
- @Override public boolean canUse(PlayerEntity player){return player.getUuid().equals(operator)&&player instanceof ServerPlayerEntity p&&train.nearby(p)&&Trains.TRAINS.get(train.data.id)==train;}
+ @Override public boolean canUse(PlayerEntity player){return player.getUuid().equals(operator)&&player.isAlive()&&Trains.TRAINS.containsKey(train.data.id);}
  @Override public ItemStack quickMove(PlayerEntity player,int slot){return ItemStack.EMPTY;}
  @Override public void onSlotClick(int slot,int button,SlotActionType action,PlayerEntity player){
-  // Never put control icons on the cursor: shift-click, number keys, drag and throw are denied.
-  if(action!=SlotActionType.PICKUP||!canUse(player))return;var c=train.data.control;
-  switch(slot){case 10->{if(train.data.hasTraction())c.power=!c.power;}case 12->c.compressor=!c.compressor;case 14->c.reverse();case 16->{if(c.emergency)c.resetEmergency();else{c.emergency=true;c.traction=0;}}case 28->c.traction=Math.max(0,c.traction-1);case 29->c.traction=Math.min(5,c.traction+1);case 32->c.brake=Math.max(0,c.brake-1);case 33->c.brake=Math.min(7,c.brake+1);case 37->c.doors(true);case 40->c.doors(false);case 43->c.lights=!c.lights;default->{}}
+  if(!canUse(player))return;var c=train.data.control;
+  boolean clicked=true;
+  switch(slot){
+   case 10->{if(train.data.hasTraction())c.power=!c.power;else player.sendMessage(Text.literal("В составе нет тягового вагона."));}
+   case 12->c.compressor=!c.compressor;
+   case 14->c.reverse();
+   case 16->{if(c.emergency)c.resetEmergency();else{c.emergency=true;c.traction=0;}}
+   case 28->c.traction=Math.max(0,c.traction-1);
+   case 29->{c.traction=Math.min(5,c.traction+1);if(c.traction>0)c.brake=0;}
+   case 32->c.brake=Math.max(0,c.brake-1);
+   case 33->{c.brake=Math.min(7,c.brake+1);if(c.brake>0)c.traction=0;}
+   case 37->c.doors(true);
+   case 40->c.doors(false);
+   case 43->c.lights=!c.lights;
+   default->clicked=false;
+  }
   setCursorStack(ItemStack.EMPTY);
-  if(player instanceof ServerPlayerEntity sp)sp.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket.UPDATE_CURSOR_SYNC_ID,nextRevision(),-1,ItemStack.EMPTY));
+  if(player instanceof ServerPlayerEntity sp){
+   if(clicked)sp.playSound(SoundEvents.UI_BUTTON_CLICK.value(),0.4f,1.0f);
+   sp.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket.UPDATE_CURSOR_SYNC_ID,nextRevision(),-1,ItemStack.EMPTY));
+   refresh();
+   for(int i=0;i<54;i++)sp.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket(syncId,nextRevision(),i,panel.getStack(i)));
+  }else{
+   refresh();
+  }
   sendContentUpdates();
  }
  @Override public void sendContentUpdates(){if(panel!=null)refresh();super.sendContentUpdates();}

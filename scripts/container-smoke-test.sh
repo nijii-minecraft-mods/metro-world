@@ -14,7 +14,7 @@ trap cleanup EXIT
 # Publish only the Minecraft port, on loopback and a free host port. RCON stays private.
 docker run -d --name "$name" -p 127.0.0.1::25565 \
   -e MEMORY=2G -e LEVEL=ci-smoke -e VIEW_DISTANCE=3 -e SIMULATION_DISTANCE=3 \
-  -e ENABLE_RCON=TRUE "$image" > build/container-check/container-id.txt
+  -e MAX_TICK_TIME=-1 -e ENABLE_RCON=TRUE "$image" > build/container-check/container-id.txt
 ready=false
 for ((attempt=0;attempt<120;attempt++)); do
   running=$(docker inspect -f '{{.State.Running}}' "$name")
