@@ -26,41 +26,77 @@ final class TrainRender {
  void spawn(){
   double half=train.data.carLength(index)/2;BlockState color=(car==TrainCar.METRO_RED?Blocks.RED_CONCRETE:car==TrainCar.LOCOMOTIVE?Blocks.ORANGE_CONCRETE:Blocks.LIGHT_BLUE_CONCRETE).getDefaultState();
   if(TrainModels.cart(train.data,index)==null){
-  box(Blocks.POLISHED_DEEPSLATE.getDefaultState(),-1.4,-.22,-half,2.8,.22,train.data.carLength(index));
-  if(car!=TrainCar.PLATFORM){
-   if(car==TrainCar.CONTAINER){box(Blocks.CYAN_TERRACOTTA.getDefaultState(),-1.28,0,-half+1,2.56,2.4,train.data.carLength(index)-2);box(Blocks.IRON_BLOCK.getDefaultState(),-1.29,.1,half-1.05,2.58,2.2,.1);}
-   else{
-    box(color,-1.4,2.5,-half,2.8,.2,train.data.carLength(index));
-    for(boolean left:new boolean[]{true,false}){
-     double x=left?-1.4:1.3;
-     double span=half-1;
-     if(span>0){
-      box(color,x,0,-half,.1,.6,span);
-      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,-half,.1,1.25,span);
-      box(color,x,1.85,-half,.1,.65,span);
-      box(color,x,0,1,.1,.6,span);
-      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,1,.1,1.25,span);
-      box(color,x,1.85,1,.1,.65,span);
-     }
-     box(color,x,0,-1,.1,.6,2);
-     boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,-1,.1,1.9,1,left);
-     boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,0,.1,1.9,1,left);
+   // Underfloor steel chassis and interior floor
+   box(Blocks.GRAY_CONCRETE.getDefaultState(),-1.35,-.4,-half,2.7,.2,train.data.carLength(index));
+   box(Blocks.POLISHED_DEEPSLATE.getDefaultState(),-1.4,-.2,-half,2.8,.2,train.data.carLength(index));
+   // Realistic bogies (wheelsets, axles, side frames, bolster)
+   double bogieDist=half*.65;
+   for(double bz:new double[]{-bogieDist,bogieDist}){
+    for(double az:new double[]{bz-.75,bz+.75}){
+     box(Blocks.IRON_BLOCK.getDefaultState(),-.74,-1.82,az-.36,.12,.72,.72);
+     box(Blocks.IRON_BLOCK.getDefaultState(),.62,-1.82,az-.36,.12,.72,.72);
+     box(Blocks.GRAY_CONCRETE.getDefaultState(),-.62,-1.54,az-.08,1.24,.16,.16);
     }
-    // Ends leave a gangway except for the outside cab faces.
-    if(index==0)box(Blocks.GRAY_CONCRETE.getDefaultState(),-1.35,0,half-.12,2.7,1,.12);
-    if(index==train.data.cars.size()-1)box(color,-1.35,0,-half,2.7,1,.12);
-    for(int i=0;i<car.seats;i++){
-     double x=car==TrainCar.LOCOMOTIVE?0:i%2==0?-.95:.95,z=car==TrainCar.LOCOMOTIVE?2:(i/2-1.5)*1.7;
-     box(Blocks.BLUE_CONCRETE.getDefaultState(),x-.32,.32,z-.35,.64,.25,.7);
-     var seat=new ArmorStandEntity(EntityType.ARMOR_STAND,world);var nbt=new NbtCompound();nbt.putBoolean("Invisible",true);nbt.putBoolean("Marker",true);nbt.putBoolean("NoGravity",true);seat.readNbt(nbt);seat.setInvulnerable(true);seats.add(seat);add(seat,x,-.15,z,false,false);
-     hit(x,.4,z,.9f,.9f,"seat",i);
-    }
-    hit(0,.5,half-1.1,1.1f,1.2f,"panel",0);
+    box(Blocks.POLISHED_BLACKSTONE.getDefaultState(),-.88,-1.6,bz-1.2,.16,.36,2.4);
+    box(Blocks.POLISHED_BLACKSTONE.getDefaultState(),.72,-1.6,bz-1.2,.16,.36,2.4);
+    box(Blocks.DEEPSLATE_TILES.getDefaultState(),-.85,-1.35,bz-.35,1.7,.25,.7);
    }
-  }
+   // Underbody machinery between bogies
+   box(Blocks.BLACK_CONCRETE.getDefaultState(),-.9,-1.3,-1.4,1.8,.55,1.2);
+   box(Blocks.POLISHED_ANDESITE.getDefaultState(),-.55,-1.25,.2,1.1,.45,1.5);
+   box(Blocks.IRON_BLOCK.getDefaultState(),-.8,-1.3,2.0,1.6,.55,1.0);
+
+   if(car!=TrainCar.PLATFORM){
+    if(car==TrainCar.CONTAINER){
+     box(Blocks.CYAN_TERRACOTTA.getDefaultState(),-1.28,0,-half+1,2.56,2.4,train.data.carLength(index)-2);
+     box(Blocks.IRON_BLOCK.getDefaultState(),-1.29,.1,half-1.05,2.58,2.2,.1);
+    }else{
+     box(Blocks.WHITE_CONCRETE.getDefaultState(),-1.4,2.5,-half,2.8,.2,train.data.carLength(index));
+     for(boolean left:new boolean[]{true,false}){
+      double x=left?-1.4:1.3;
+      // Front and rear window sections
+      box(color,x,0,-half,.1,.6,half-2);
+      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,-half,.1,1.25,half-2);
+      box(color,x,1.85,-half,.1,.65,half-2);
+
+      box(color,x,0,2,.1,.6,half-2);
+      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,2,.1,1.25,half-2);
+      box(color,x,1.85,2,.1,.65,half-2);
+
+      // Center pillar between the double doors
+      box(color,x,0,0,.1,2.5,1);
+
+      // Two pairs of wide sliding doors
+      boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,-2,.1,1.9,1,left);
+      boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,-1,.1,1.9,1,left);
+      boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,1,.1,1.9,1,left);
+      boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,2,.1,1.9,1,left);
+     }
+     // Front end: cab windshield and headlights
+     if(index==0){
+      box(color,-1.35,0,half-.12,2.7,.6,.12);
+      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),-1.35,.6,half-.12,2.7,1.25,.12);
+      box(color,-1.35,1.85,half-.12,2.7,.65,.12);
+      box(Blocks.SEA_LANTERN.getDefaultState(),-1.1,.15,half-.1,.45,.35,.1);
+      box(Blocks.SEA_LANTERN.getDefaultState(),.65,.15,half-.1,.45,.35,.1);
+      hit(0,.5,half-1.1,1.1f,1.2f,"panel",0);
+     }
+     // Rear end: tail marker lights
+     if(index==train.data.cars.size()-1){
+      box(color,-1.35,0,-half,2.7,2.5,.12);
+      box(Blocks.REDSTONE_BLOCK.getDefaultState(),-1.1,.15,-half-.02,.45,.35,.1);
+      box(Blocks.REDSTONE_BLOCK.getDefaultState(),.65,.15,-half-.02,.45,.35,.1);
+     }
+     // Passenger seating
+     for(int i=0;i<car.seats;i++){
+      double x=car==TrainCar.LOCOMOTIVE?0:i%2==0?-.95:.95,z=car==TrainCar.LOCOMOTIVE?2:(i/2-1.5)*1.7;
+      box(Blocks.BLUE_CONCRETE.getDefaultState(),x-.32,.32,z-.35,.64,.25,.7);
+      var seat=new ArmorStandEntity(EntityType.ARMOR_STAND,world);var nbt=new NbtCompound();nbt.putBoolean("Invisible",true);nbt.putBoolean("Marker",true);nbt.putBoolean("NoGravity",true);seat.readNbt(nbt);seat.setInvulnerable(true);seats.add(seat);add(seat,x,-.15,z,false,false);
+      hit(x,.4,z,.9f,.9f,"seat",i);
+     }
+    }
+   }
   }else imported=TrainModels.spawn(this);
-  box(Blocks.BLACK_CONCRETE.getDefaultState(),-1,-.7,-half*.6-.7,2,.35,1.4);
-  box(Blocks.BLACK_CONCRETE.getDefaultState(),-1,-.7,half*.6-.7,2,.35,1.4);
   if(car.cargo())hit(0,.3,0,2.7f,2.5f,"cargo",0);
   if(index==0)hit(0,.3,half+.25,1.2f,.8f,"couple",0);
   // Collision floor is vanilla-compatible; seating is independent of floor transport.

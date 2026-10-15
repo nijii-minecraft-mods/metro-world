@@ -27,7 +27,7 @@ public final class TrainPath {
  public boolean same(TrainPath other){return points.equals(other.points);}
  public static TrainPath lane(TransitGeometry.Route route,boolean single){
   var points=new ArrayList<TransitGeometry.Point>();double along=0;var raw=route.points();
-  for(int i=0;i<raw.size();i++){var p=raw.get(i);if(i>0)along+=Math.hypot(p.x()-raw.get(i-1).x(),p.z()-raw.get(i-1).z());var h=route.headingAt(along);double offset=single?0:-3;points.add(new TransitGeometry.Point(p.x()-h.z()*offset+0.5,p.y()+1.2,p.z()+h.x()*offset+0.5));}
+  for(int i=0;i<raw.size();i++){var p=raw.get(i);if(i>0)along+=Math.hypot(p.x()-raw.get(i-1).x(),p.z()-raw.get(i-1).z());var h=route.headingAt(along);double offset=single?0:-3;points.add(new TransitGeometry.Point(p.x()-h.z()*offset+0.5,p.y()+3.0,p.z()+h.x()*offset+0.5));}
   return new TrainPath(points);
  }
 }

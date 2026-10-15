@@ -54,7 +54,7 @@ public final class NetworkBuilder {
   // Rail corridors own their supports and headroom, including every station layout.
   for(var s:plan.stations())for(int x=-NetworkPlan.halfLength(s.kind());x<=NetworkPlan.halfLength(s.kind());x++)for(int z:new int[]{-(3+s.trackOffset()),3+s.trackOffset()}){
    localPut(c,s,x,0,z,Blocks.POLISHED_DEEPSLATE.getDefaultState(),60);
-   for(int h=1;h<=3;h++)localPut(c,s,x,h,z,AIR,61);
+   for(int h=1;h<=6;h++)localPut(c,s,x,h,z,AIR,61);
    localPut(c,s,x,1,z,Blocks.RAIL.getDefaultState().with(RailBlock.SHAPE,RailShape.EAST_WEST),62);
   }
   rails(c,plan.paths());
@@ -177,8 +177,8 @@ public final class NetworkBuilder {
   int line=Math.floorMod((int)(p.salt()>>>5),ACCENTS.length);BlockState accent=p.freight()?Blocks.YELLOW_CONCRETE.getDefaultState():ACCENTS[line],glass=GLASSES[line];
   for(int x=c.sx;x<c.sx+16;x++)for(int z=c.sz;z<c.sz+16;z++)for(var sample:p.route().samplesNear(x,z,12)){
    var profile=p.freight()?new TunnelProfile.Section(TunnelProfile.Style.INDUSTRIAL,6,9,false):TunnelProfile.section(p.salt(),p.service(),p.transfer(),sample.along(),length);
-   double width=p.singleTrack()?3:profile.halfWidth();int fullHeight=profile.height();
-   int base=railPlan==null?(int)Math.floor(sample.floorY()):railPlan.floorAt(x,z,sample);double d=profile.distance(sample);int roof=p.singleTrack()?Math.max(5,profile.roof(d)):profile.roof(d);
+   double width=p.singleTrack()?3.5:profile.halfWidth();int fullHeight=p.singleTrack()?Math.max(7,profile.height()):profile.height();
+   int base=railPlan==null?(int)Math.floor(sample.floorY()):railPlan.floorAt(x,z,sample);double d=profile.distance(sample);int roof=p.singleTrack()?Math.max(7,profile.roof(d)):profile.roof(d);
    boolean damaged=p.condition()!=NetworkPlan.Condition.INTACT;
    int bay=Math.floorMod((int)sample.along(),12);
    BlockState wall=switch(profile.style()){
@@ -229,7 +229,7 @@ public final class NetworkBuilder {
    RailShape shape=RailShape.valueOf(cell.shape().toUpperCase(java.util.Locale.ROOT));
    boolean powered=power.contains(at)&&count<3&&(cell.shape().startsWith("ascending_")||cell.shape().equals("east_west")||cell.shape().equals("north_south"));
    c.put(cell.x(),cell.floor(),cell.z(),(powered?Blocks.REDSTONE_BLOCK:Blocks.POLISHED_DEEPSLATE).getDefaultState(),60);
-   c.box(cell.x(),cell.x(),cell.floor()+1,cell.floor()+3,cell.z(),cell.z(),AIR,61);
+   c.box(cell.x(),cell.x(),cell.floor()+1,cell.floor()+6,cell.z(),cell.z(),AIR,61);
    c.put(cell.x(),cell.floor()+1,cell.z(),powered?Blocks.POWERED_RAIL.getDefaultState().with(PoweredRailBlock.SHAPE,shape).with(PoweredRailBlock.POWERED,true):Blocks.RAIL.getDefaultState().with(RailBlock.SHAPE,shape),62);
   }
   // Controls stand on the aisle, never on the track or in the minecart headroom.
