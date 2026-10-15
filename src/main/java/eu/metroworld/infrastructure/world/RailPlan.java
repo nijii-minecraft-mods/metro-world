@@ -19,7 +19,9 @@ public final class RailPlan {
   for(var lane:lanes){
    int low=0,high=lane.size();while(low<high){int mid=(low+high)>>>1;if(lane.get(mid).along()<sample.along())low=mid+1;else high=mid;}
    for(int i=Math.max(0,low-20);i<Math.min(lane.size(),low+21);i++){
-    Cell c=lane.get(i);double score=Math.pow(x-c.x(),2)+Math.pow(z-c.z(),2)+Math.pow((sample.along()-c.along())*.2,2);
+    Cell c=lane.get(i);
+    double dx=x-c.x(),dz=z-c.z(),da=(sample.along()-c.along())*.2;
+    double score=dx*dx+dz*dz+da*da;
     if(score<best){best=score;floor=c.floor();}
    }
   }

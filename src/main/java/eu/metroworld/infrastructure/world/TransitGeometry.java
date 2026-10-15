@@ -11,6 +11,11 @@ public final class TransitGeometry {
     public static final class Route {
         private final List<Point> points;
         private final double minX,maxX,minZ,maxZ;
+        private final int segCount;
+        private final double[] segDx, segDz, segDy, segLen, segLenSq, segTravel;
+        private final double[] segMinX, segMaxX, segMinZ, segMaxZ;
+        private final double totalLength;
+
         public Route(List<Point> input) {
             if(input.size()<2) throw new IllegalArgumentException("A route needs two points");
             points=List.copyOf(input);
@@ -18,57 +23,98 @@ public final class TransitGeometry {
             maxX=points.stream().mapToDouble(Point::x).max().orElseThrow();
             minZ=points.stream().mapToDouble(Point::z).min().orElseThrow();
             maxZ=points.stream().mapToDouble(Point::z).max().orElseThrow();
+            segCount = points.size() - 1;
+            segDx = new double[segCount];
+            segDz = new double[segCount];
+            segDy = new double[segCount];
+            segLen = new double[segCount];
+            segLenSq = new double[segCount];
+            segTravel = new double[segCount];
+            segMinX = new double[segCount];
+            segMaxX = new double[segCount];
+            segMinZ = new double[segCount];
+            segMaxZ = new double[segCount];
+            double travel = 0;
+            for(int i = 0; i < segCount; i++){
+                Point a = points.get(i), b = points.get(i + 1);
+                double dx = b.x - a.x, dz = b.z - a.z, dy = b.y - a.y;
+                double len = Math.hypot(dx, dz);
+                segDx[i] = dx;
+                segDz[i] = dz;
+                segDy[i] = dy;
+                segLen[i] = len;
+                segLenSq[i] = len * len;
+                segTravel[i] = travel;
+                travel += len;
+                segMinX[i] = Math.min(a.x, b.x);
+                segMaxX[i] = Math.max(a.x, b.x);
+                segMinZ[i] = Math.min(a.z, b.z);
+                segMaxZ[i] = Math.max(a.z, b.z);
+            }
+            totalLength = travel;
         }
         public List<Point> points(){return points;}
-        public double length(){double sum=0;for(int i=1;i<points.size();i++)sum+=Math.hypot(points.get(i).x-points.get(i-1).x,points.get(i).z-points.get(i-1).z);return sum;}
+        public double length(){return totalLength;}
         /** Unit X/Z tangent at a distance measured along the route. */
         public Point headingAt(double distance){
-            double travel=0;
-            for(int i=1;i<points.size();i++){
-                Point a=points.get(i-1),b=points.get(i);double dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
-                if(len<1e-8)continue;
-                if(travel+len>=distance)return new Point(dx/len,0,dz/len);
-                travel+=len;
+            for(int i = 0; i < segCount; i++){
+                double len = segLen[i];
+                if(len < 1e-8) continue;
+                if(segTravel[i] + len >= distance) return new Point(segDx[i] / len, 0, segDz[i] / len);
             }
-            Point a=points.get(points.size()-2),b=points.get(points.size()-1);double len=Math.hypot(b.x-a.x,b.z-a.z);
-            return new Point((b.x-a.x)/len,0,(b.z-a.z)/len);
+            int last = segCount - 1;
+            double len = segLen[last];
+            return len >= 1e-8 ? new Point(segDx[last] / len, 0, segDz[last] / len) : new Point(0, 0, 0);
         }
         public boolean intersects(int chunkX,int chunkZ,double padding){
             return maxX+padding>=chunkX&&minX-padding<=chunkX+15&&maxZ+padding>=chunkZ&&minZ-padding<=chunkZ+15;
         }
         /** Column query, preserving separate levels of a helix; run once per x/z column. */
         public List<Sample> samplesNear(double x,double z,double halfWidth){
-            List<Sample> found=new ArrayList<>();double travel=0;
-            for(int i=1;i<points.size();i++){
-                Point a=points.get(i-1),b=points.get(i);
-                double dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
-                if(len<1e-8)continue;
-                if(x<Math.min(a.x,b.x)-halfWidth||x>Math.max(a.x,b.x)+halfWidth||z<Math.min(a.z,b.z)-halfWidth||z>Math.max(a.z,b.z)+halfWidth){travel+=len;continue;}
-                double t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(len*len)));
-                double dist=Math.hypot(x-a.x-t*dx,z-a.z-t*dz),floor=a.y+t*(b.y-a.y);
-                if(dist<=halfWidth){
-                    Sample sample=new Sample(dist,floor,dx/len,dz/len,travel+t*len,(-(x-a.x-t*dx)*dz+(z-a.z-t*dz)*dx)/len);int match=-1;
-                    for(int k=0;k<found.size();k++)if(Math.abs(found.get(k).floorY-floor)<8){match=k;break;}
-                    if(match<0)found.add(sample);else if(dist<found.get(match).distance)found.set(match,sample);
+            List<Sample> found = null;
+            for(int i = 0; i < segCount; i++){
+                double len = segLen[i];
+                if(len < 1e-8) continue;
+                if(x < segMinX[i] - halfWidth || x > segMaxX[i] + halfWidth || z < segMinZ[i] - halfWidth || z > segMaxZ[i] + halfWidth) continue;
+                double dx = segDx[i], dz = segDz[i];
+                Point a = points.get(i);
+                double t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / segLenSq[i]));
+                double px = x - a.x - t * dx, pz = z - a.z - t * dz;
+                double dist = Math.hypot(px, pz);
+                if(dist <= halfWidth){
+                    double floor = a.y + t * segDy[i];
+                    Sample sample = new Sample(dist, floor, dx / len, dz / len, segTravel[i] + t * len, (-px * dz + pz * dx) / len);
+                    if(found == null) found = new ArrayList<>();
+                    int match = -1;
+                    for(int k = 0; k < found.size(); k++){
+                        if(Math.abs(found.get(k).floorY - floor) < 8){ match = k; break; }
+                    }
+                    if(match < 0) found.add(sample);
+                    else if(dist < found.get(match).distance) found.set(match, sample);
                 }
-                travel+=len;
             }
-            return List.copyOf(found);
+            return found == null ? List.of() : List.copyOf(found);
         }
         /** Use this for tubes without vertical loops. For helices use nearest(x,y,z). */
         public Sample nearest(double x,double z){return nearest(x,Double.NaN,z);}
         public Sample nearest(double x,double y,double z){
-            double best=Double.POSITIVE_INFINITY, travel=0; Sample result=null;
-            for(int i=1;i<points.size();i++){
-                Point a=points.get(i-1),b=points.get(i);
-                double dx=b.x-a.x,dz=b.z-a.z,dy=b.y-a.y,len=Math.hypot(dx,dz);
-                if(len<1e-8)continue;
-                double t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(len*len)));
-                double floor=a.y+t*dy,dist=Math.hypot(x-a.x-t*dx,z-a.z-t*dz);
-                // Height disambiguates stacked turns while leaving tube cross sections horizontal.
-                double score=dist*dist+(Double.isNaN(y)?0:Math.pow(y-floor,2));
-                if(score<best){best=score;result=new Sample(dist,floor,dx/len,dz/len,travel+t*len,(-(x-a.x-t*dx)*dz+(z-a.z-t*dz)*dx)/len);}
-                travel+=len;
+            double best = Double.POSITIVE_INFINITY; Sample result = null;
+            boolean hasY = !Double.isNaN(y);
+            for(int i = 0; i < segCount; i++){
+                double len = segLen[i];
+                if(len < 1e-8) continue;
+                double dx = segDx[i], dz = segDz[i], dy = segDy[i];
+                Point a = points.get(i);
+                double t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / segLenSq[i]));
+                double floor = a.y + t * dy;
+                double px = x - a.x - t * dx, pz = z - a.z - t * dz;
+                double dist = Math.hypot(px, pz);
+                double yDiff = hasY ? y - floor : 0;
+                double score = dist * dist + (hasY ? yDiff * yDiff : 0);
+                if(score < best){
+                    best = score;
+                    result = new Sample(dist, floor, dx / len, dz / len, segTravel[i] + t * len, (-px * dz + pz * dx) / len);
+                }
             }
             return result;
         }
