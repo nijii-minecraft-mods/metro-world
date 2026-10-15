@@ -14,13 +14,13 @@ public final class NetworkBuilder {
  public enum SignKind { STATION, SECRET, BOTANICAL, QUARANTINE }
  public record SignSpec(String title, SignKind kind) {}
  private static final class Canvas {
-  final Chunk chunk;final int sx,sz,bottom,height;final BlockState[] states;final byte[] priorities;final java.util.Map<BlockPos,SignSpec> signs=new java.util.HashMap<>();final java.util.Map<BlockPos,String> loot=new java.util.HashMap<>();
+  final Chunk chunk;final int sx,sz,bottom,height;final BlockState[] states;final byte[] priorities;int minY=Integer.MAX_VALUE,maxY=Integer.MIN_VALUE;final java.util.Map<BlockPos,SignSpec> signs=new java.util.HashMap<>();final java.util.Map<BlockPos,String> loot=new java.util.HashMap<>();
   Canvas(Chunk chunk){this.chunk=chunk;sx=chunk.getPos().getStartX();sz=chunk.getPos().getStartZ();bottom=chunk.getBottomY();height=chunk.getHeight();states=new BlockState[height*256];priorities=new byte[states.length];}
   void sign(BlockPos pos,String title,SignKind kind){signs.put(pos,new SignSpec(title,kind));}
-  void put(int x,int y,int z,BlockState state,int priority){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return;int i=(y-bottom)*256+(z-sz)*16+x-sx;if(priority>=priorities[i]){states[i]=state;priorities[i]=(byte)priority;}}
+  void put(int x,int y,int z,BlockState state,int priority){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return;int i=(y-bottom)*256+(z-sz)*16+x-sx;if(priority>=priorities[i]){states[i]=state;priorities[i]=(byte)priority;if(y<minY)minY=y;if(y>maxY)maxY=y;}}
   BlockState peek(int x,int y,int z){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return null;return states[(y-bottom)*256+(z-sz)*16+x-sx];}
   void box(int x1,int x2,int y1,int y2,int z1,int z2,BlockState state,int priority){for(int x=Math.max(sx,x1);x<=Math.min(sx+15,x2);x++)for(int z=Math.max(sz,z1);z<=Math.min(sz+15,z2);z++)for(int y=y1;y<=y2;y++)put(x,y,z,state,priority);}
-  void flush(long seed){BlockPos.Mutable pos=new BlockPos.Mutable();for(int i=0;i<states.length;i++){BlockState state=states[i];if(state==null)continue;int x=sx+(i&15),z=sz+((i>>>4)&15),y=bottom+(i>>>8);chunk.setBlockState(pos.set(x,y,z),state,false);
+  void flush(long seed){if(minY>maxY)return;int startI=(minY-bottom)*256,endI=Math.min(states.length,(maxY-bottom+1)*256);BlockPos.Mutable pos=new BlockPos.Mutable();for(int i=startI;i<endI;i++){BlockState state=states[i];if(state==null)continue;int x=sx+(i&15),z=sz+((i>>>4)&15),y=bottom+(i>>>8);chunk.setBlockState(pos.set(x,y,z),state,false);
    if(state.isOf(Blocks.CHEST)||state.isOf(Blocks.BARREL)){
     LootableContainerBlockEntity container=state.isOf(Blocks.CHEST)?new ChestBlockEntity(pos.toImmutable(),state):new BarrelBlockEntity(pos.toImmutable(),state);
     String table=loot.getOrDefault(pos.toImmutable(),"maintenance");
@@ -171,10 +171,10 @@ public final class NetworkBuilder {
   BlockPos sign=local(s,-105,7,83);c.sign(sign,name,spec.kind()==SideBranchDesign.Kind.QUARANTINE?SignKind.QUARANTINE:SignKind.SECRET);
   localPut(c,s,-105,7,83,Blocks.OAK_WALL_SIGN.getDefaultState().with(WallSignBlock.FACING,Direction.NORTH),50);
  }
+ private static final BlockState[] ACCENTS={Blocks.CYAN_CONCRETE.getDefaultState(),Blocks.LIME_CONCRETE.getDefaultState(),Blocks.ORANGE_CONCRETE.getDefaultState(),Blocks.LIGHT_BLUE_CONCRETE.getDefaultState(),Blocks.PURPLE_CONCRETE.getDefaultState()};
+ private static final BlockState[] GLASSES={Blocks.CYAN_STAINED_GLASS.getDefaultState(),Blocks.LIME_STAINED_GLASS.getDefaultState(),Blocks.ORANGE_STAINED_GLASS.getDefaultState(),Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),Blocks.PURPLE_STAINED_GLASS.getDefaultState()};
  private static void path(Canvas c,NetworkPlan.Path p){double length=p.route().length();RailPlan railPlan=p.service()?null:(p.singleTrack()?RailPlan.ofSingle(p.route()):RailPlan.of(p.route()));
-  BlockState[] accents={Blocks.CYAN_CONCRETE.getDefaultState(),Blocks.LIME_CONCRETE.getDefaultState(),Blocks.ORANGE_CONCRETE.getDefaultState(),Blocks.LIGHT_BLUE_CONCRETE.getDefaultState(),Blocks.PURPLE_CONCRETE.getDefaultState()};
-  BlockState[] glasses={Blocks.CYAN_STAINED_GLASS.getDefaultState(),Blocks.LIME_STAINED_GLASS.getDefaultState(),Blocks.ORANGE_STAINED_GLASS.getDefaultState(),Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),Blocks.PURPLE_STAINED_GLASS.getDefaultState()};
-  int line=Math.floorMod((int)(p.salt()>>>5),accents.length);BlockState accent=p.freight()?Blocks.YELLOW_CONCRETE.getDefaultState():accents[line],glass=glasses[line];
+  int line=Math.floorMod((int)(p.salt()>>>5),ACCENTS.length);BlockState accent=p.freight()?Blocks.YELLOW_CONCRETE.getDefaultState():ACCENTS[line],glass=GLASSES[line];
   for(int x=c.sx;x<c.sx+16;x++)for(int z=c.sz;z<c.sz+16;z++)for(var sample:p.route().samplesNear(x,z,12)){
    var profile=p.freight()?new TunnelProfile.Section(TunnelProfile.Style.INDUSTRIAL,6,9,false):TunnelProfile.section(p.salt(),p.service(),p.transfer(),sample.along(),length);
    double width=p.singleTrack()?3:profile.halfWidth();int fullHeight=profile.height();
