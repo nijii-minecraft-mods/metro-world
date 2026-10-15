@@ -12,12 +12,17 @@ import org.joml.Vector3f;
 import org.joml.Quaternionf;
 /** Compact original bodies; imported attachments use the same carriage coordinate frame. */
 final class TrainRender {
- record Part(Entity entity,double x,double y,double z,boolean door,boolean left){}
+ static final class Part {
+  final Entity entity;final double x,y,z;final boolean door,left;boolean spawned;
+  Part(Entity entity,double x,double y,double z,boolean door,boolean left){this.entity=entity;this.x=x;this.y=y;this.z=z;this.door=door;this.left=left;}
+  public Entity entity(){return entity;}
+ }
  final List<Part> parts=new ArrayList<>();final List<ArmorStandEntity> seats=new ArrayList<>();
  final ServerWorld world;final Trains.Runtime train;final int index;final TrainCar car;
  int animationTicks;float leftAmount,rightAmount;double wheelDistance;
+ boolean lastLights;
  TrainPath.Pose pose;List<TrainModels.Attachment> imported=List.of();
- TrainRender(ServerWorld world,Trains.Runtime train,int index){this.world=world;this.train=train;this.index=index;car=train.data.cars.get(index);}
+ TrainRender(ServerWorld world,Trains.Runtime train,int index){this.world=world;this.train=train;this.index=index;car=train.data.cars.get(index);this.lastLights=!train.data.control.lights;}
  void spawn(){
   double half=train.data.carLength(index)/2;BlockState color=(car==TrainCar.METRO_RED?Blocks.RED_CONCRETE:car==TrainCar.LOCOMOTIVE?Blocks.ORANGE_CONCRETE:Blocks.LIGHT_BLUE_CONCRETE).getDefaultState();
   if(TrainModels.cart(train.data,index)==null){
@@ -28,12 +33,18 @@ final class TrainRender {
     box(color,-1.4,2.5,-half,2.8,.2,train.data.carLength(index));
     for(boolean left:new boolean[]{true,false}){
      double x=left?-1.4:1.3;
-     for(int z=-(int)half;z<(int)half;z++){
-      boolean door=z==-1||z==0;
-      box(color,x,0,z,.1,.6,1);
-      if(!door){box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,z,.1,1.25,1);box(color,x,1.85,z,.1,.65,1);}
-      else boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,z,.1,1.9,1,left);
+     double span=half-1;
+     if(span>0){
+      box(color,x,0,-half,.1,.6,span);
+      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,-half,.1,1.25,span);
+      box(color,x,1.85,-half,.1,.65,span);
+      box(color,x,0,1,.1,.6,span);
+      box(Blocks.LIGHT_BLUE_STAINED_GLASS.getDefaultState(),x,.6,1,.1,1.25,span);
+      box(color,x,1.85,1,.1,.65,span);
      }
+     box(color,x,0,-1,.1,.6,2);
+     boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,-1,.1,1.9,1,left);
+     boxDoor(Blocks.LIGHT_GRAY_CONCRETE.getDefaultState(),x,.6,0,.1,1.9,1,left);
     }
     // Ends leave a gangway except for the outside cab faces.
     if(index==0)box(Blocks.GRAY_CONCRETE.getDefaultState(),-1.35,0,half-.12,2.7,1,.12);
@@ -53,7 +64,7 @@ final class TrainRender {
   if(car.cargo())hit(0,.3,0,2.7f,2.5f,"cargo",0);
   if(index==0)hit(0,.3,half+.25,1.2f,.8f,"couple",0);
   // Collision floor is vanilla-compatible; seating is independent of floor transport.
-  for(int z=-(int)half;z<half+1;z++)for(int x=-1;x<=1;x++){
+  for(int z=-(int)half;z<(int)half;z++)for(double x:new double[]{-.6,.6}){
    var anchor=new DisplayEntity.BlockDisplayEntity(EntityType.BLOCK_DISPLAY,world);anchor.setBlockState(Blocks.AIR.getDefaultState());anchor.setTeleportDuration(1);add(anchor,x,-1,z+.5,false,false);
    var floor=new ShulkerEntity(EntityType.SHULKER,world);floor.addCommandTag("metro-world:train-floor");floor.setAiDisabled(true);floor.setInvisible(true);floor.setSilent(true);floor.setInvulnerable(true);floor.setNoGravity(true);add(floor,x,-1,z+.5,false,false);floor.startRiding(anchor,true);
   }
@@ -65,7 +76,30 @@ final class TrainRender {
  }
  void hit(double x,double y,double z,float width,float height,String action,int seat){var e=new InteractionEntity(EntityType.INTERACTION,world);e.setInteractionWidth(width);e.setInteractionHeight(height);Trains.HITS.put(e.getUuid(),new Trains.Hit(train.data.id,index,action,seat));add(e,x,y,z,false,false);}
  void add(Entity e,double x,double y,double z,boolean door,boolean left){e.addCommandTag(Trains.RENDER_TAG);e.setNoGravity(true);Trains.OWNED.add(e.getUuid());parts.add(new Part(e,x,y,z,door,left));}
- void move(TrainPath.Pose target){animationTicks++;wheelDistance+=Math.abs(train.data.control.speed)/20.0;leftAmount+=(train.data.control.leftDoors?1-leftAmount:-leftAmount)*.15f;rightAmount+=(train.data.control.rightDoors?1-rightAmount:-rightAmount)*.15f;pose=target;for(var p:parts){double offset=p.door&& (p.left?train.data.control.leftDoors:train.data.control.rightDoors)?(p.z<0?-1.25:1.25):0;var at=target.world(p.x,p.y,p.z+offset);p.entity.refreshPositionAndAngles(at[0],at[1],at[2],target.yaw(),target.pitch());if(p.entity instanceof DisplayEntity d){d.setYaw(target.yaw());d.setPitch(target.pitch());d.setBrightness(new Brightness(train.data.control.lights?15:4,0));}if(!p.entity.isRemoved()&&world.getEntity(p.entity.getUuid())==null)world.spawnEntity(p.entity);}
+ void move(TrainPath.Pose target){
+  animationTicks++;wheelDistance+=Math.abs(train.data.control.speed)/20.0;
+  leftAmount+=(train.data.control.leftDoors?1-leftAmount:-leftAmount)*.15f;
+  rightAmount+=(train.data.control.rightDoors?1-rightAmount:-rightAmount)*.15f;
+  pose=target;
+  boolean lightsChanged=train.data.control.lights!=lastLights;
+  lastLights=train.data.control.lights;
+  Brightness brightness=lightsChanged?new Brightness(train.data.control.lights?15:4,0):null;
+  for(var p:parts){
+   double offset=p.door&&(p.left?train.data.control.leftDoors:train.data.control.rightDoors)?(p.z<0?-1.25:1.25):0;
+   double effZ=p.z+offset;
+   double wx=target.x()+target.hz()*p.x+target.hx()*effZ;
+   double wy=target.y()+p.y+target.grade()*effZ;
+   double wz=target.z()-target.hx()*p.x+target.hz()*effZ;
+   p.entity.refreshPositionAndAngles(wx,wy,wz,target.yaw(),target.pitch());
+   if(p.entity instanceof DisplayEntity d){
+    d.setYaw(target.yaw());d.setPitch(target.pitch());
+    if(lightsChanged)d.setBrightness(brightness);
+   }
+   if(!p.spawned&&!p.entity.isRemoved()){
+    if(world.getEntity(p.entity.getUuid())==null)world.spawnEntity(p.entity);
+    p.spawned=true;
+   }
+  }
   if(!imported.isEmpty())TrainModels.update(this,imported,target);
  }
  void dispose(){for(var p:parts){p.entity.discard();Trains.HITS.remove(p.entity.getUuid());Trains.OWNED.remove(p.entity.getUuid());}parts.clear();seats.clear();}

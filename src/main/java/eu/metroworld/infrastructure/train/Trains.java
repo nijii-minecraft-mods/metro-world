@@ -80,11 +80,13 @@ public final class Trains {
    boolean rider=t.render.stream().anyMatch(r->r.seats.stream().anyMatch(net.minecraft.entity.Entity::hasPassengers))||BOARDING.values().stream().anyMatch(b->b.train.equals(t.data.id));
    boolean near=server.getPlayerManager().getPlayerList().stream().anyMatch(p->{if(!Transit.isNetworkWorld(p.getWorld()))return false;for(int i=0;i<t.data.cars.size();i++){var at=t.pose(i);if(p.squaredDistanceTo(at.x(),at.y(),at.z())<256*256)return true;}return false;});
    if(!near||active++>=4&&!rider){if(!t.render.isEmpty()){t.data.control.speed=0;t.data.control.traction=0;t.data.control.brake=7;t.hide();}continue;}
-   t.show(world);var old=new ArrayList<TrainPath.Pose>();for(int i=0;i<t.data.cars.size();i++)old.add(t.pose(i));
+   t.show(world);int carCount=t.data.cars.size();var old=new ArrayList<TrainPath.Pose>(carCount);for(int i=0;i<carCount;i++)old.add(t.pose(i));
    if(!t.data.hasTraction()){t.data.control.power=false;t.data.control.compressor=false;t.data.control.traction=0;}
    extend(world,t);
-   for(int i=0;i<t.data.cars.size();i++){
-    var pose=t.pose(i);ChunkPos chunk=new ChunkPos(BlockPos.ofFloored(pose.x(),pose.y(),pose.z()));world.getChunkManager().addTicket(TICKET,chunk,2,t.data.id);world.getChunk(chunk.x,chunk.z);
+   int lastTicketCx=Integer.MIN_VALUE,lastTicketCz=Integer.MIN_VALUE;
+   for(int i=0;i<carCount;i++){
+    var pose=old.get(i);int cx=(int)Math.floor(pose.x())>>4,cz=(int)Math.floor(pose.z())>>4;
+    if(cx!=lastTicketCx||cz!=lastTicketCz){lastTicketCx=cx;lastTicketCz=cz;ChunkPos chunk=new ChunkPos(cx,cz);world.getChunkManager().addTicket(TICKET,chunk,2,t.data.id);world.getChunk(chunk.x,chunk.z);}
    }
    double before=t.data.control.position;t.data.control.tick(.05,t.data.length()+2,t.path.length-2,t.path.at(before).grade());
    // Compare occupied intervals, so a split consist can move apart but cannot overlap.
@@ -93,47 +95,59 @@ public final class Trains {
     double newGap=gap(t.data.control.position,t.data.length(),other.data.control.position,other.data.length());
     if(newGap<Math.min(.8,oldGap)-.0001){t.data.control.position=before;t.data.control.speed=0;t.data.control.brake=7;break;}
    }
+   var current=new ArrayList<TrainPath.Pose>(carCount);for(int i=0;i<carCount;i++)current.add(t.pose(i));
    boolean occupied=false;
-   for(var other:TRAINS.values())if(other!=t)for(int i=0;i<t.data.cars.size();i++)for(int j=0;j<other.data.cars.size();j++){
-    var a=t.pose(i);var b=other.pose(j);if(!TrainEnvelope.overlaps(a,t.data.carLength(i),2.8,b,other.data.carLength(j),2.8))continue;
+   for(var other:TRAINS.values())if(other!=t)for(int i=0;i<carCount;i++)for(int j=0;j<other.data.cars.size();j++){
+    var a=current.get(i);var b=other.pose(j);if(!TrainEnvelope.overlaps(a,t.data.carLength(i),2.8,b,other.data.carLength(j),2.8))continue;
     double oldDistance=Math.hypot(old.get(i).x()-b.x(),old.get(i).z()-b.z()),newDistance=Math.hypot(a.x()-b.x(),a.z()-b.z());if(newDistance<oldDistance-.0001)occupied=true;
    }
-   if(occupied||!clear(world,t)){t.data.control.position=before;t.data.control.speed=0;t.data.control.traction=0;t.data.control.brake=7;}
+   if(occupied||!clear(world,t,current)){t.data.control.position=before;t.data.control.speed=0;t.data.control.traction=0;t.data.control.brake=7;current=old;}
    for(int i=0;i<t.render.size();i++){
-    carry(server,t,i,old.get(i),t.pose(i));t.render.get(i).move(t.pose(i));
+    carry(server,t,i,old.get(i),current.get(i));t.render.get(i).move(current.get(i));
    }
   }
   if(server.getTicks()%100==0){for(var p:server.getPlayerManager().getPlayerList())if(Transit.isNetworkWorld(p.getWorld()))autoSpawn(p);}
   if(server.getTicks()%200==0)save(server);
  }
  static double gap(double a,double al,double b,double bl){return Math.max(a-al-b,b-bl-a);}
- private static boolean clear(ServerWorld world,Runtime train){
+ private static boolean clear(ServerWorld world,Runtime train,List<TrainPath.Pose> poses){
   int lastCx=Integer.MIN_VALUE,lastCz=Integer.MIN_VALUE;
+  int lastBx=Integer.MIN_VALUE,lastBy=Integer.MIN_VALUE,lastBz=Integer.MIN_VALUE;
   net.minecraft.world.chunk.WorldChunk chunk=null;
+  BlockPos.Mutable pos=new BlockPos.Mutable();
   for(int i=0;i<train.data.cars.size();i++){
-   var pose=train.pose(i);double half=train.data.carLength(i)/2;
+   var pose=poses.get(i);double half=train.data.carLength(i)/2;
    for(double z=-half+.3;z<=half-.2;z+=1)for(double x:new double[]{-1.15,0,1.15})for(double y:new double[]{.4,1.3,2.4}){
-    var at=pose.world(x,y,z);int bx=(int)Math.floor(at[0]),by=(int)Math.floor(at[1]),bz=(int)Math.floor(at[2]);
+    double wx=pose.x()+pose.hz()*x+pose.hx()*z;
+    double wy=pose.y()+y+pose.grade()*z;
+    double wz=pose.z()-pose.hx()*x+pose.hz()*z;
+    int bx=(int)Math.floor(wx),by=(int)Math.floor(wy),bz=(int)Math.floor(wz);
+    if(bx==lastBx&&by==lastBy&&bz==lastBz)continue;
+    lastBx=bx;lastBy=by;lastBz=bz;
     int cx=Math.floorDiv(bx,16),cz=Math.floorDiv(bz,16);
     if(cx!=lastCx||cz!=lastCz){lastCx=cx;lastCz=cz;chunk=world.getChunkManager().getWorldChunk(cx,cz);}
     if(chunk==null)return false;
-    var pos=new BlockPos(bx,by,bz);
-    if(!chunk.getBlockState(pos).getCollisionShape(world,pos).isEmpty())return false;
+    var state=chunk.getBlockState(pos.set(bx,by,bz));
+    if(!state.isAir()&&!state.getCollisionShape(world,pos).isEmpty())return false;
    }
   }return true;
  }
  private static void carry(MinecraftServer server,Runtime train,int index,TrainPath.Pose old,TrainPath.Pose next){
+  double carHalf=train.data.carLength(index)/2;
   for(var p:server.getPlayerManager().getPlayerList()){
    if(!Transit.isNetworkWorld(p.getWorld())||p.isSpectator()||p.hasVehicle())continue;
-   var local=old.local(p.getX(),p.getY(),p.getZ());var car=train.data.cars.get(index);
+   if(Math.abs(p.getX()-old.x())>20||Math.abs(p.getZ()-old.z())>20)continue;
+   var local=old.local(p.getX(),p.getY(),p.getZ());
    var entry=BOARDING.get(p.getUuid());boolean ours=entry!=null&&entry.train.equals(train.data.id)&&entry.car==index;
-   if(!ours){if((entry!=null&&TRAINS.containsKey(entry.train))||Math.abs(local[0])>1.15||Math.abs(local[2])>train.data.carLength(index)/2||local[1]<-.15||local[1]>.35)continue;
+   if(!ours){if((entry!=null&&TRAINS.containsKey(entry.train))||Math.abs(local[0])>1.15||Math.abs(local[2])>carHalf||local[1]<-.15||local[1]>.35)continue;
     boolean floor=worldFloor(p);if(!floor)continue;BOARDING.put(p.getUuid(),new Boarding(train.data.id,index));}
-   if(Math.abs(local[0])>1.65||Math.abs(local[2])>train.data.carLength(index)/2+1.2||local[1]<-1||local[1]>3.5){BOARDING.remove(p.getUuid());continue;}
+   if(Math.abs(local[0])>1.65||Math.abs(local[2])>carHalf+1.2||local[1]<-1||local[1]>3.5){BOARDING.remove(p.getUuid());continue;}
    if(train.data.control.stopped())continue;
    double lateral=local[0];if(!train.data.control.leftDoors&&!train.data.control.rightDoors)lateral=Math.max(-1.05,Math.min(1.05,lateral));
-   var at=next.world(lateral,local[1],local[2]);
-   if(Math.abs(at[0]-p.getX())+Math.abs(at[1]-p.getY())+Math.abs(at[2]-p.getZ())>.001)p.networkHandler.requestTeleport(at[0],at[1],at[2],p.getYaw(),p.getPitch());
+   double atX=next.x()+next.hz()*lateral+next.hx()*local[2];
+   double atY=next.y()+local[1]+next.grade()*local[2];
+   double atZ=next.z()-next.hx()*lateral+next.hz()*local[2];
+   if(Math.abs(atX-p.getX())+Math.abs(atY-p.getY())+Math.abs(atZ-p.getZ())>.001)p.networkHandler.requestTeleport(atX,atY,atZ,p.getYaw(),p.getPitch());
    p.fallDistance=0;
   }
  }
