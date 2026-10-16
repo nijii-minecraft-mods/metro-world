@@ -5,7 +5,7 @@ public final class StationGraph {
  public static final int REGION=4096,MIN_DISTANCE=600,MIN_Y=-176,MAX_Y=112;
  public record Id(int regionX,int regionZ,int slot){}
  public enum Traffic { PASSENGER, FREIGHT, MIXED }
- public record Vertex(Id id,NetworkPlan.Node node,boolean portal,long salt){public Traffic traffic(){return id.slot()==0||portal||Math.floorMod(salt,6)==0?Traffic.MIXED:Math.floorMod(salt,4)==0?Traffic.FREIGHT:Traffic.PASSENGER;}}
+ public record Vertex(Id id,NetworkPlan.Node node,boolean portal,long salt){public Traffic traffic(){return id.slot()==0||Math.floorMod(salt,6)==0?Traffic.MIXED:Math.floorMod(salt,4)==0?Traffic.FREIGHT:Traffic.PASSENGER;}}
  public record Edge(Vertex a,Vertex b,boolean northSouth,long salt){public boolean freight(){return a.traffic()==Traffic.FREIGHT||b.traffic()==Traffic.FREIGHT||a.traffic()==Traffic.MIXED&&b.traffic()==Traffic.MIXED&&northSouth;}}
  private static boolean compatible(Vertex a,Vertex b){
   if(a.traffic()!=Traffic.MIXED&&b.traffic()!=Traffic.MIXED)return a.traffic()==b.traffic();

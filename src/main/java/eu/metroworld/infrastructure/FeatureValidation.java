@@ -29,17 +29,20 @@ public final class FeatureValidation {
   ServerWorld world=source.getServer().getWorld(Transit.UNDERGROUND);Checks checks=new Checks();
   if(world==null){source.sendError(Text.literal("FEATURES_FAILED: metro dimension unavailable"));return 0;}
   try{
-   var portal=StationGraph.nearestPortal(world.getSeed(),0,0);
-   BlockPos arrival=new BlockPos(portal.x()+2,portal.y()+3,portal.z()+8);load(world,arrival);
+   var v=StationGraph.nearestPortalVertex(world.getSeed(),0,0);
+   var flags=NetworkPlan.halls(world.getSeed(),v);
+   boolean ns=!flags[0]&&flags[1];
+   var hall=NetworkPlan.forChunk(world.getSeed(),Math.floorDiv(v.node().x(),16)*16,Math.floorDiv(v.node().z(),16)*16).stations().stream()
+     .filter(s->s.node().equals(StationGraph.railNode(v,ns))&&s.northSouth()==ns).findFirst().orElseThrow(()->new IllegalStateException("portal has no hall"));
+   var pnode=hall.node();
+   BlockPos arrival=new BlockPos(pnode.x()+(ns?-8:2),pnode.y()+3,pnode.z()+(ns?2:8));load(world,arrival);
    checks.require(Transit.safeFeet(world,arrival),"unsafe portal arrival "+arrival.toShortString());
-   var hall=NetworkPlan.forChunk(world.getSeed(),Math.floorDiv(portal.x(),16)*16,Math.floorDiv(portal.z(),16)*16).stations().stream()
-     .filter(s->s.node().equals(portal)&&!s.northSouth()).findFirst().orElseThrow(()->new IllegalStateException("portal has no upper hall"));
    int width=NetworkPlan.halfWidth(hall.kind());
-   BlockPos terminal=new BlockPos(portal.x()-10,portal.y()+3,portal.z()+width+8);load(world,terminal);
+   BlockPos terminal=ns?new BlockPos(pnode.x()-(width+8),pnode.y()+3,pnode.z()-10):new BlockPos(pnode.x()-10,pnode.y()+3,pnode.z()+width+8);load(world,terminal);
    checks.require(world.getBlockState(terminal).isOf(InfrastructureBlocks.LIFT),"missing portal return terminal "+terminal.toShortString());
    // Walkway leading up to the physical return terminal, not through the terminal block itself.
    for(int z=width-3;z<width+8;z++){
-    BlockPos feet=new BlockPos(portal.x()-10,portal.y()+3,portal.z()+z);load(world,feet);
+    BlockPos feet=ns?new BlockPos(pnode.x()-z,pnode.y()+3,pnode.z()-10):new BlockPos(pnode.x()-10,pnode.y()+3,pnode.z()+z);load(world,feet);
     checks.require(Transit.safeFeet(world,feet),"blocked return concourse "+feet.toShortString());
    }
    var aquarium=NetworkPlan.nearestStation(world.getSeed(),0,0,"aquarium");
