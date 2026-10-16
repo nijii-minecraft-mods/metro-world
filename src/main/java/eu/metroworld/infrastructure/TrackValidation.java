@@ -56,43 +56,22 @@ public final class TrackValidation {
    var plan=NetworkPlan.forChunk(world.getSeed(),Math.floorDiv(node.x(),16)*16,Math.floorDiv(node.z(),16)*16);
    var station=plan.stations().stream().filter(s->s.node().equals(node)&&s.northSouth()==ns).findFirst().orElseThrow();
    int length=NetworkPlan.halfLength(station.kind()),width=NetworkPlan.halfWidth(station.kind());
-   if(station.isDiagonal()){
-    var ori=station.orientation();boolean nw=ori==NetworkPlan.Orientation.DIAGONAL_NW;
-    for(int k=-length;k<=length;k++)for(int track:new int[]{-6,6}){
-     int rx1=node.x()+k,rz1=nw?node.z()-k+track:node.z()+k+track;
-     int rx2=rx1+1,rz2=rz1;
-     for(int[] r:new int[][]{{rx1,rz1},{rx2,rz2}}){
-      var at=new BlockPos(r[0],node.y()+1,r[1]);
-      world.getChunk(Math.floorDiv(at.getX(),16),Math.floorDiv(at.getZ(),16));
-      var state=world.getBlockState(at);
-      if(!(state.getBlock() instanceof AbstractRailBlock)||!world.getBlockState(at.up()).isAir()||!supported(world,at,state)){
-       errors++;if(first.isEmpty())first=at.toShortString()+": diagonal station throat blocked";
-      }
-      checked++;
-     }
+   for(int offset=-length;offset<=length;offset++)for(int lane:new int[]{-(3+station.trackOffset()),3+station.trackOffset()}){
+    var at=new BlockPos(node.x()+(ns?-lane:offset),node.y()+1,node.z()+(ns?offset:lane));
+    world.getChunk(Math.floorDiv(at.getX(),16),Math.floorDiv(at.getZ(),16));
+    if(!(world.getBlockState(at).getBlock() instanceof AbstractRailBlock)||!world.getBlockState(at.up()).isAir()||!supported(world,at,world.getBlockState(at))){
+     errors++;if(first.isEmpty())first=at.toShortString()+": station throat blocked";
     }
-    var terminal=new BlockPos(node.x()-2,node.y()+3,node.z()+2);
-    world.getChunk(Math.floorDiv(terminal.getX(),16),Math.floorDiv(terminal.getZ(),16));
-    if(!world.getBlockState(terminal).isOf(InfrastructureBlocks.LIFT)){errors++;if(first.isEmpty())first=terminal.toShortString()+": missing diagonal exit";}
     checked++;
-   }else{
-    for(int offset=-length;offset<=length;offset++)for(int lane:new int[]{-(3+station.trackOffset()),3+station.trackOffset()}){
-     var at=new BlockPos(node.x()+(ns?-lane:offset),node.y()+1,node.z()+(ns?offset:lane));
-     world.getChunk(Math.floorDiv(at.getX(),16),Math.floorDiv(at.getZ(),16));
-     if(!(world.getBlockState(at).getBlock() instanceof AbstractRailBlock)||!world.getBlockState(at.up()).isAir()||!supported(world,at,world.getBlockState(at))){
-      errors++;if(first.isEmpty())first=at.toShortString()+": station throat blocked";
-     }
-     checked++;
-    }
-    var terminal=new BlockPos(node.x()+(ns?-(width+8):-10),node.y()+3,node.z()+(ns?-10:width+8));
-    world.getChunk(Math.floorDiv(terminal.getX(),16),Math.floorDiv(terminal.getZ(),16));
-    if(!world.getBlockState(terminal).isOf(InfrastructureBlocks.LIFT)){errors++;if(first.isEmpty())first=terminal.toShortString()+": missing exit";}
-    for(int side=width-3;side<width+8;side++){
-     var feet=new BlockPos(node.x()+(ns?-side:-10),node.y()+3,node.z()+(ns?-10:side));
-     world.getChunk(Math.floorDiv(feet.getX(),16),Math.floorDiv(feet.getZ(),16));
-     if(!world.getBlockState(feet).isAir()||!world.getBlockState(feet.up()).isAir()||!world.getBlockState(feet.down()).isSideSolidFullSquare(world,feet.down(),Direction.UP)){
-      errors++;if(first.isEmpty())first=feet.toShortString()+": blocked exit concourse";
-     }
+   }
+   var terminal=new BlockPos(node.x()+(ns?-(width+8):-10),node.y()+3,node.z()+(ns?-10:width+8));
+   world.getChunk(Math.floorDiv(terminal.getX(),16),Math.floorDiv(terminal.getZ(),16));
+   if(!world.getBlockState(terminal).isOf(InfrastructureBlocks.LIFT)){errors++;if(first.isEmpty())first=terminal.toShortString()+": missing exit";}
+   for(int side=width-3;side<width+8;side++){
+    var feet=new BlockPos(node.x()+(ns?-side:-10),node.y()+3,node.z()+(ns?-10:side));
+    world.getChunk(Math.floorDiv(feet.getX(),16),Math.floorDiv(feet.getZ(),16));
+    if(!world.getBlockState(feet).isAir()||!world.getBlockState(feet.up()).isAir()||!world.getBlockState(feet.down()).isSideSolidFullSquare(world,feet.down(),Direction.UP)){
+     errors++;if(first.isEmpty())first=feet.toShortString()+": blocked exit concourse";
     }
    }
   }

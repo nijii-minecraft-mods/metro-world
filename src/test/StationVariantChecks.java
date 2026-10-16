@@ -17,7 +17,6 @@ public final class StationVariantChecks {
    require(variant.roof(z,17,14)>=12);
    require(variant.roof(z,17,14)==variant.roof(-z,17,14));
   }
-  require(StationVariant.DIAGONAL_VAULT.roof(0,17,14)>=12);
-  System.out.println("STATION_VARIANTS_OK: compact/island selection, 3 circulation plans, 12 vehicle cells, 245 symmetric roof samples");
+  System.out.println("STATION_VARIANTS_OK: compact/island selection, 3 circulation plans, 12 vehicle cells, 210 symmetric roof samples");
  }
 }

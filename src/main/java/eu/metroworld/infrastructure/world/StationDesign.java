@@ -19,10 +19,6 @@ public final class StationDesign {
     public static final int HALF_LENGTH = 40, HALF_WIDTH = 17, HEIGHT = 14;
     private StationDesign() {}
 
-    public static BlockState sampleDiagonal(int dx, int y, int dz, int length, int width, int height, long salt, NetworkPlan.Orientation orientation) {
-        return DiagonalStationDesign.sample(dx, y, dz, length, width, height, salt, orientation);
-    }
-
     public static BlockState sample(int x, int y, int z, long salt) {
         return sample(x, y, z, HALF_LENGTH, HALF_WIDTH, HEIGHT, salt);
     }

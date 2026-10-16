@@ -54,9 +54,8 @@ public class StationGraphChecks {
     }
    }
    check(ccbs>0,"interchange CCB branches absent");
-   for(String type:new String[]{"station","passenger","mini","interchange","terminal","freight","mixed","biocenter","aquarium","diagonal"}){
+   for(String type:new String[]{"station","passenger","mini","interchange","terminal","freight","mixed","biocenter","aquarium"}){
     var match=NetworkPlan.nearestStation(seed,0,0,type);check(match!=null,"no station type "+type);var n=match.node();var plan=NetworkPlan.forChunk(seed,Math.floorDiv(n.x(),16)*16,Math.floorDiv(n.z(),16)*16);check(plan.stations().stream().anyMatch(s->s.node().equals(n)&&s.kind()==match.kind()&&s.northSouth()==match.northSouth()),"locator disagrees with rendering");
-    if(type.equals("diagonal"))check(match.isDiagonal(),"diagonal locator returned non-diagonal station");
    }
   }
   check(blocked>1000&&free>1000,"noise has no occupied/free areas");check(stations>20&&edges>0&&diagonal>100,"random topology absent");

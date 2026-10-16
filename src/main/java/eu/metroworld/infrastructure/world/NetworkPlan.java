@@ -2,11 +2,10 @@ package eu.metroworld.infrastructure.world;
 import java.util.*;
 /** Immutable spatial plan. Stations own explicit ports; routes never start inside platforms. */
 public final class NetworkPlan {
- public enum StationKind { PASSENGER, MINI, TERMINAL, INTERCHANGE, MIXED, FREIGHT, BIOCENTER, DIAGONAL }
- public enum Orientation { EAST_WEST, NORTH_SOUTH, DIAGONAL_NE, DIAGONAL_NW; public boolean isDiagonal(){return this==DIAGONAL_NE||this==DIAGONAL_NW;} }
+ public enum StationKind { PASSENGER, MINI, TERMINAL, INTERCHANGE, MIXED, FREIGHT, BIOCENTER }
  public static StationKind stationKind(Node n,long salt){
   
-  int roll=Math.floorMod((int)(salt>>>12),10);return roll<2?StationKind.MINI:roll==2?StationKind.TERMINAL:roll<5?StationKind.FREIGHT:roll<7?StationKind.BIOCENTER:roll==7?StationKind.DIAGONAL:StationKind.PASSENGER;
+  int roll=Math.floorMod((int)(salt>>>12),10);return roll<2?StationKind.MINI:roll==2?StationKind.TERMINAL:roll<5?StationKind.FREIGHT:roll<7?StationKind.BIOCENTER:StationKind.PASSENGER;
  }
  public enum TrackLayout { CENTRAL, ISLAND }
  public enum Condition { INTACT, COLLAPSED, CHEMICAL, QUARANTINE }
@@ -15,23 +14,15 @@ public final class NetworkPlan {
  public static int halfLength(StationKind kind){return kind==StationKind.MINI?28:kind==StationKind.TERMINAL?54:40;}
  public static int halfWidth(StationKind kind){return kind==StationKind.MINI?12:kind==StationKind.TERMINAL?22:17;}
  public static int stationHeight(StationKind kind){return kind==StationKind.MINI?10:kind==StationKind.TERMINAL?18:14;}
- public record Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset,boolean deadEndMinus,boolean deadEndPlus,Orientation orientation){
-  public Station(Node node,long salt,Condition condition){this(node,salt,condition,false,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0,false,false,Orientation.EAST_WEST);}
-  public Station(Node node,long salt,Condition condition,boolean interchange){this(node,salt,condition,interchange,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0,false,false,Orientation.EAST_WEST);}
-  public Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset){this(node,salt,condition,interchange,northSouth,portal,kind,trackLayout,trackOffset,false,false,northSouth?Orientation.NORTH_SOUTH:Orientation.EAST_WEST);}
-  public Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset,boolean deadEndMinus,boolean deadEndPlus){
-   this(node,salt,condition,interchange,northSouth,portal,kind,trackLayout,trackOffset,deadEndMinus,deadEndPlus,
-    kind==StationKind.DIAGONAL?((salt&2)==0?Orientation.DIAGONAL_NE:Orientation.DIAGONAL_NW):(northSouth?Orientation.NORTH_SOUTH:Orientation.EAST_WEST));
-  }
-  public boolean isDiagonal(){return kind==StationKind.DIAGONAL||orientation.isDiagonal();}
+ public record Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset,boolean deadEndMinus,boolean deadEndPlus){
+  public Station(Node node,long salt,Condition condition){this(node,salt,condition,false,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0,false,false);}
+  public Station(Node node,long salt,Condition condition,boolean interchange){this(node,salt,condition,interchange,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0,false,false);}
+  public Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset){this(node,salt,condition,interchange,northSouth,portal,kind,trackLayout,trackOffset,false,false);}
   public boolean intersects(int x,int z,int margin){
    int length=halfLength(kind),minX=-length,maxX=length,minZ=-halfWidth(kind),maxZ=halfWidth(kind)+16;
    if(kind==StationKind.BIOCENTER){minZ=-62-DomeDesign.spec(salt).outerRadius();maxX=Math.max(maxX,82);}
    if(SideBranchDesign.present(salt)){var spec=SideBranchDesign.select(salt,length);minX=Math.min(minX,SideBranchDesign.minX(spec));maxZ=Math.max(maxZ,SideBranchDesign.maxZ(spec));}
    if(kind==StationKind.TERMINAL){if(deadEndMinus)minX=Math.min(minX,-length-36);if(deadEndPlus||!deadEndMinus)maxX=Math.max(maxX,length+36);}
-   if(isDiagonal()){
-    return node.x+length+margin>=x&&node.x-length-margin<=x+15&&node.z+length+16+margin>=z&&node.z-length-margin<=z+15;
-   }
    return northSouth?node.x-minZ+margin>=x&&node.x-maxZ-margin<=x+15&&node.z+maxX+margin>=z&&node.z+minX-margin<=z+15:
     node.x+maxX+margin>=x&&node.x+minX-margin<=x+15&&node.z+maxZ+margin>=z&&node.z+minZ-margin<=z+15;
   }
@@ -62,7 +53,6 @@ public final class NetworkPlan {
   if(k==StationKind.FREIGHT)k=StationKind.PASSENGER; // Pure passenger candidates cannot become cargo stops by decoration roll.
   if(v.traffic()==StationGraph.Traffic.FREIGHT)k=StationKind.FREIGHT;
   if(ns&&k==StationKind.BIOCENTER)k=StationKind.PASSENGER;
-  if((transfer||v.portal())&&k==StationKind.DIAGONAL)k=StationKind.PASSENGER;
   int offset=transfer?0:Math.floorMod(h,3)==0?4:0;
   int plusEdges=0,minusEdges=0;
   for(var e:StationGraph.incident(seed,v)){
@@ -121,10 +111,7 @@ public final class NetworkPlan {
    return buildCCBRoute(node.x(),node.y(),node.z(),upperL,lowerL,false,false);
   });}
  }
- public record StationMatch(Node node,StationKind kind,boolean northSouth,boolean interchange,Orientation orientation){
-  public StationMatch(Node node,StationKind kind,boolean northSouth,boolean interchange){this(node,kind,northSouth,interchange,northSouth?Orientation.NORTH_SOUTH:Orientation.EAST_WEST);}
-  public boolean isDiagonal(){return kind==StationKind.DIAGONAL||(orientation!=null&&orientation.isDiagonal());}
- }
+ public record StationMatch(Node node,StationKind kind,boolean northSouth,boolean interchange){}
  public static StationMatch nearestStation(long seed,double x,double z,String requested){
   int rx=(int)Math.floor(x/StationGraph.REGION),rz=(int)Math.floor(z/StationGraph.REGION);StationMatch best=null;double distance=Double.POSITIVE_INFINITY;
   for(int radius=0;radius<=8;radius++){
@@ -133,7 +120,7 @@ public final class NetworkPlan {
     for(var v:StationGraph.vertices(seed,rx+dx,rz+dz)){if(StationGraph.incident(seed,v).isEmpty())continue;var flags=halls(seed,v);
      for(boolean ns:new boolean[]{false,true}){if(!flags[ns?1:0])continue;var s=station(seed,v,ns);var k=s.kind();
       boolean matches=requested.equals("station")||requested.equals("interchange")&&(s.interchange()||(k==StationKind.INTERCHANGE||k==StationKind.MIXED))||requested.equals(k.name().toLowerCase(Locale.ROOT))||requested.equals("aquarium")&&k==StationKind.BIOCENTER&&DomeDesign.spec(s.salt()).kind()==DomeDesign.Kind.AQUA;
-      if(!matches)continue;double d=Math.hypot(s.node().x-x,s.node().z-z);if(d<distance){distance=d;best=new StationMatch(s.node(),k,ns,s.interchange(),s.orientation());}
+      if(!matches)continue;double d=Math.hypot(s.node().x-x,s.node().z-z);if(d<distance){distance=d;best=new StationMatch(s.node(),k,ns,s.interchange());}
      }
     }
    }

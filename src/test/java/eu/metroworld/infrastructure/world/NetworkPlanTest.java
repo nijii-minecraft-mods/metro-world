@@ -53,14 +53,4 @@ class NetworkPlanTest {
   }
   assertTrue(found>=10,"Must find terminal stations with sidings");
  }
- @Test void diagonalStationsAreGeneratedAndLocated(){
-  var match=NetworkPlan.nearestStation(7,0,0,"diagonal");
-  assertNotNull(match,"Diagonal station locator must find a station");
-  assertEquals(NetworkPlan.StationKind.DIAGONAL,match.kind());
-  assertTrue(match.isDiagonal());
-  assertTrue(match.orientation().isDiagonal());
-  int cx=Math.floorDiv(match.node().x(),16)*16,cz=Math.floorDiv(match.node().z(),16)*16;
-  var plan=NetworkPlan.forChunk(7,cx,cz);
-  assertTrue(plan.stations().stream().anyMatch(s->s.node().equals(match.node())&&s.isDiagonal()),"Chunk plan must contain diagonal station");
- }
 }

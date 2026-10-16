@@ -50,7 +50,7 @@ output=$(docker exec "$name" rcon-cli 'metro-train validate')
 printf '%s\n' "$output" | tee build/container-check/trains.txt
 printf '%s\n' "$output" | grep -F 'TRAINS_OK:' >/dev/null
 docker exec "$name" sh -c 'test -s /data/polymer/resource_pack.zip || test -s /data/polymer-resourcepack.zip'
-for type in station passenger mini interchange terminal freight mixed biocenter aquarium spiral diagonal; do
+for type in station passenger mini interchange terminal freight mixed biocenter aquarium spiral; do
   output=$(docker exec "$name" rcon-cli "metro-world locate $type")
   printf '%s\n' "$output" >> build/container-check/locate.txt
   printf '%s\n' "$output" | grep -F '/execute in metro-world:metro-world run tp @s' >/dev/null

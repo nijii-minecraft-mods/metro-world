@@ -2,7 +2,7 @@ package eu.metroworld.infrastructure.world;
 
 /** Pure station architecture rules; route topology and exits are owned by NetworkPlan. */
 public enum StationVariant {
-    COMPACT_SIDE, VAULTED_SIDE, ISLAND_BRIDGE, GALLERY, DISTRIBUTION_HALL, LOGISTICS, DIAGONAL_VAULT;
+    COMPACT_SIDE, VAULTED_SIDE, ISLAND_BRIDGE, GALLERY, DISTRIBUTION_HALL, LOGISTICS;
 
     public static StationVariant select(long salt,int length,int width,int height,int expansion) {
         if (length < 34 || width < 15 || height < 13) return COMPACT_SIDE;
@@ -17,7 +17,6 @@ public enum StationVariant {
         int az=Math.abs(z);
         if(this==COMPACT_SIDE)return height;
         if(this==DISTRIBUTION_HALL||this==LOGISTICS)return height-(az>width-3?1:0);
-        if(this==DIAGONAL_VAULT)return height-(az>width-4?2:az>width-7?1:0);
         return height-(az>width-4?2:az>width-7?1:0);
     }
     /** Keep the entire vehicle clearance unobstructed, including slopes at each portal. */
