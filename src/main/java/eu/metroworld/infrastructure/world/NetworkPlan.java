@@ -22,7 +22,7 @@ public final class NetworkPlan {
    int length=halfLength(kind),minX=-length,maxX=length,minZ=-halfWidth(kind),maxZ=halfWidth(kind)+16;
    if(kind==StationKind.BIOCENTER){minZ=-62-DomeDesign.spec(salt).outerRadius();maxX=Math.max(maxX,82);}
    if(SideBranchDesign.present(salt)){var spec=SideBranchDesign.select(salt,length);minX=Math.min(minX,SideBranchDesign.minX(spec));maxZ=Math.max(maxZ,SideBranchDesign.maxZ(spec));}
-   if(kind==StationKind.TERMINAL){if(deadEndMinus)minX=Math.min(minX,-length-36);if(deadEndPlus||!deadEndMinus)maxX=Math.max(maxX,length+36);}
+   if(deadEndMinus)minX=Math.min(minX,-length-36);if(deadEndPlus)maxX=Math.max(maxX,length+36);
    return northSouth?node.x-minZ+margin>=x&&node.x-maxZ-margin<=x+15&&node.z+maxX+margin>=z&&node.z+minX-margin<=z+15:
     node.x+maxX+margin>=x&&node.x+minX-margin<=x+15&&node.z+maxZ+margin>=z&&node.z+minZ-margin<=z+15;
   }
@@ -46,7 +46,15 @@ public final class NetworkPlan {
  }
  private static TransitGeometry.Point point(Node n){return new TransitGeometry.Point(n.x,n.y,n.z);}
  private static void addPath(List<Path> out,TransitGeometry.Route route,Condition c,long h,boolean service,int sx,int sz){if(route.intersects(sx,sz,SHELL+(service?3:6)))out.add(new Path(route,c,h,service));}
- private static boolean[] halls(long seed,StationGraph.Vertex v){boolean ew=v.portal(),ns=false;for(var e:StationGraph.incident(seed,v)){if(e.northSouth())ns=true;else ew=true;}return new boolean[]{ew,ns};}
+ public static boolean[] halls(long seed,StationGraph.Vertex v){
+  boolean ew=false,ns=false;
+  for(var e:StationGraph.incident(seed,v)){
+   if(e.northSouth())ns=true;
+   else ew=true;
+  }
+  if(!ew&&!ns)ew=true;
+  return new boolean[]{ew,ns};
+ }
  public static Station station(long seed,StationGraph.Vertex v,boolean ns){
   var flags=halls(seed,v);boolean transfer=flags[0]&&flags[1];var n=StationGraph.railNode(v,ns);long h=v.salt();
   StationKind k=v.traffic()==StationGraph.Traffic.FREIGHT?StationKind.FREIGHT:v.traffic()==StationGraph.Traffic.MIXED?StationKind.MIXED:stationKind(n,h);
@@ -61,7 +69,7 @@ public final class NetworkPlan {
     else minusEdges++;
    }
   }
-  return new Station(n,h,condition(seed,n.x,n.z,41),transfer,ns,v.portal()&&!ns,k,offset==0?TrackLayout.CENTRAL:TrackLayout.ISLAND,offset,minusEdges==0,plusEdges==0);
+  return new Station(n,h,condition(seed,n.x,n.z,41),transfer,ns,v.portal()&&(!flags[0]||!ns),k,offset==0?TrackLayout.CENTRAL:TrackLayout.ISLAND,offset,minusEdges==0,plusEdges==0);
  }
  private record RouteKey(long seed,StationGraph.Id a,StationGraph.Id b){}
  private static final Map<RouteKey,List<TrackRoute>> TRACK_ROUTES=new LinkedHashMap<>(128,.75f,true){protected boolean removeEldestEntry(Map.Entry<RouteKey,List<TrackRoute>> e){return size()>128;}};

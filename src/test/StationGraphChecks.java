@@ -31,8 +31,9 @@ public class StationGraphChecks {
    int ccbs=0;
    for(int rx=-1;rx<=0;rx++)for(int rz=-1;rz<=0;rz++){
     for(var v:StationGraph.vertices(seed,rx,rz)){
-     var inc=StationGraph.incident(seed,v);boolean ew=v.portal(),ns=false;
+     var inc=StationGraph.incident(seed,v);boolean ew=false,ns=false;
      for(var e:inc){if(e.northSouth())ns=true;else ew=true;}
+     if(!ew&&!ns)ew=true;
      if(ew&&ns){
       ccbs++;
       var ccb=NetworkPlan.ccbRoute(seed,v);

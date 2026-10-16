@@ -100,10 +100,8 @@ public final class NetworkBuilder {
   stationChest(c,s,-length+16,-width+3,Math.floorMod(s.salt(),5)==0?"secure_locker":stationLoot(kind));
   if(kind==NetworkPlan.StationKind.BIOCENTER){biocenter(c,s);botanical(c,s);}
   if(SideBranchDesign.present(s.salt()))sideBranch(c,s);
-  if(kind==NetworkPlan.StationKind.TERMINAL){
-   if(s.deadEndMinus())reversingSiding(c,s,-1);
-   if(s.deadEndPlus()||!s.deadEndMinus())reversingSiding(c,s,1);
-  }
+  if(s.deadEndMinus())reversingSiding(c,s,-1);
+  if(s.deadEndPlus())reversingSiding(c,s,1);
  }
  private static void reversingSiding(Canvas c,NetworkPlan.Station s,int dir){
   int len=NetworkPlan.halfLength(s.kind());int offset=s.trackOffset();

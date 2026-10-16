@@ -53,18 +53,22 @@ public final class Transit {
   if(target==null){p.sendMessage(Text.literal("Измерение метро не загружено: требуется перезапуск сервера."));return 0;}
   double sourceX=returnPos==null?p.getX():returnPos.getX()+0.5;
   double sourceZ=returnPos==null?p.getZ():returnPos.getZ()+0.5;
-  eu.metroworld.infrastructure.world.NetworkPlan.Node station;
-  try{station=eu.metroworld.infrastructure.world.StationGraph.nearestPortal(target.getSeed(),TransitScale.toMetro(sourceX),TransitScale.toMetro(sourceZ));}
-  catch(IllegalStateException e){p.sendMessage(Text.literal("Рядом не найдена доступная входная станция. Попробуй другой вход."));return 0;}
-  int arrivalX=station.x()+2;
-  target.getChunk(Math.floorDiv(arrivalX,16),Math.floorDiv(station.z()+8,16));
-  BlockPos arrival=new BlockPos(arrivalX,station.y()+3,station.z()+8);
+  var v=eu.metroworld.infrastructure.world.StationGraph.nearestPortalVertex(target.getSeed(),TransitScale.toMetro(sourceX),TransitScale.toMetro(sourceZ));
+  if(v==null){p.sendMessage(Text.literal("Рядом не найдена доступная входная станция. Попробуй другой вход."));return 0;}
+  var flags=eu.metroworld.infrastructure.world.NetworkPlan.halls(target.getSeed(),v);
+  boolean ns=!flags[0]&&flags[1];
+  var station=eu.metroworld.infrastructure.world.NetworkPlan.station(target.getSeed(),v,ns);
+  int arrivalX=station.node().x()+(ns?-8:2);
+  int arrivalZ=station.node().z()+(ns?2:8);
+  int arrivalY=station.node().y()+3;
+  target.getChunk(Math.floorDiv(arrivalX,16),Math.floorDiv(arrivalZ,16));
+  BlockPos arrival=new BlockPos(arrivalX,arrivalY,arrivalZ);
   if(!safeFeet(target,arrival)){p.sendMessage(Text.literal("Площадка станции недоступна. Переход отменён; обновите старое измерение метро."));return 0;}
   synchronized(RETURN_POSITIONS){
-   getPositions(p).setProperty(p.getUuidAsString(),p.getWorld().getRegistryKey().getValue()+","+(returnPos==null?p.getX():returnPos.getX()+0.5)+","+(returnPos==null?p.getY():returnPos.getY())+","+(returnPos==null?p.getZ():returnPos.getZ()+0.5)+","+p.getYaw()+","+p.getPitch()+","+station.x()+","+station.z()+","+station.y());
+   getPositions(p).setProperty(p.getUuidAsString(),p.getWorld().getRegistryKey().getValue()+","+(returnPos==null?p.getX():returnPos.getX()+0.5)+","+(returnPos==null?p.getY():returnPos.getY())+","+(returnPos==null?p.getZ():returnPos.getZ()+0.5)+","+p.getYaw()+","+p.getPitch()+","+station.node().x()+","+station.node().z()+","+station.node().y());
    dirty=true;
   }
-  p.teleport(target,arrivalX+0.5,station.y()+3,station.z()+8.5,90,0);
+  p.teleport(target,arrivalX+0.5,arrivalY,arrivalZ+0.5,ns?0:90,0);
   p.sendMessage(Text.literal("Метро: станция. Лифт возвращения — слева, чёрно-жёлтый блок. Высоты станций и тоннелей меняются по пути."));
   return 1;
  }

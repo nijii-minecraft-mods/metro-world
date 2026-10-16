@@ -10,8 +10,9 @@ class NetworkPlanTest {
  @Test void interchangeStationsHaveConnectingTracksCCB(){
   int found=0;
   for(int rx=-1;rx<=1;rx++)for(int rz=-1;rz<=1;rz++)for(var v:StationGraph.vertices(7,rx,rz)){
-   var inc=StationGraph.incident(7,v);boolean ew=v.portal(),ns=false;
+   var inc=StationGraph.incident(7,v);boolean ew=false,ns=false;
    for(var e:inc){if(e.northSouth())ns=true;else ew=true;}
+   if(!ew&&!ns)ew=true;
    if(ew&&ns){
     found++;
     var ccb=NetworkPlan.ccbRoute(7,v);

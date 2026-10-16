@@ -65,9 +65,13 @@ public final class InfrastructureMod implements ModInitializer {
   boolean metro=Transit.isNetworkWorld(source.getWorld());if(!metro&&!source.getWorld().getRegistryKey().equals(net.minecraft.world.World.OVERWORLD)){source.sendError(Text.literal("Ищите станции из обычного мира или метро."));return 0;}
   var pos=source.getPosition();double x=metro?pos.x:TransitScale.toMetro(pos.x),z=metro?pos.z:TransitScale.toMetro(pos.z);
   if(type.equals("entrance")){
-   var n=eu.metroworld.infrastructure.world.StationGraph.nearestPortal(world.getSeed(),x,z);
+   var v=eu.metroworld.infrastructure.world.StationGraph.nearestPortalVertex(world.getSeed(),x,z);
+   var n=v.node();
+   var flags=eu.metroworld.infrastructure.world.NetworkPlan.halls(world.getSeed(),v);
+   boolean ns=!flags[0]&&flags[1];
+   var s=eu.metroworld.infrastructure.world.NetworkPlan.station(world.getSeed(),v,ns);
    int ox=Math.floorDiv(Math.floorDiv(n.x(),8),16)*16+8,oz=Math.floorDiv(Math.floorDiv(n.z(),8),16)*16+8;
-   source.sendFeedback(()->Text.literal("Узел с выходом: метро ["+n.x()+", "+(n.y()+3)+", "+n.z()+"]. План павильона Overworld: ["+ox+", ~, "+oz+"]. Павильон появляется только на подходящей местности. /execute in minecraft:overworld run tp @s "+ox+" ~ "+oz),false);return 1;
+   source.sendFeedback(()->Text.literal("Узел с выходом: метро ["+s.node().x()+", "+(s.node().y()+3)+", "+s.node().z()+"]. План павильона Overworld: ["+ox+", ~, "+oz+"]. Павильон появляется только на подходящей местности. /execute in minecraft:overworld run tp @s "+ox+" ~ "+oz),false);return 1;
   }
   if(type.equals("spiral")){
    var at=eu.metroworld.infrastructure.world.NetworkPlan.nearestSpiral(world.getSeed(),x,z);
