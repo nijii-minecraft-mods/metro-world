@@ -43,6 +43,12 @@ public final class SideBranchBuilder {
             }else if(s.kind()==SideBranchDesign.Kind.ABANDONED_DEPOT){
                 if(z==80&&y<=4&&(x==-108||x==-104||x==-92))return Blocks.BARREL.getDefaultState();
                 if(y==3&&z==60&&Math.floorMod(x,7)==0)return Blocks.COBWEB.getDefaultState();
+                if(z==70){
+                    if(x==-115&&y==3)return Blocks.POLISHED_BLACKSTONE.getDefaultState();
+                    if(x==-115&&y==4)return Blocks.IRON_BLOCK.getDefaultState();
+                    if(x==-115&&y==5)return Blocks.REDSTONE_TORCH.getDefaultState();
+                    if(x==-116&&y>=3&&y<=5)return Blocks.POLISHED_BLACKSTONE.getDefaultState();
+                }
             }else{
                 if(z==81&&y<=5&&x>=-106&&x<=-94)return Blocks.COPPER_BLOCK.getDefaultState();
                 if(z==59&&y==3&&(x==-110||x==-90))return Blocks.CRAFTING_TABLE.getDefaultState();

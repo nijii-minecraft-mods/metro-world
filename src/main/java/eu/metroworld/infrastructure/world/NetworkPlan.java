@@ -14,13 +14,15 @@ public final class NetworkPlan {
  public static int halfLength(StationKind kind){return kind==StationKind.MINI?28:kind==StationKind.TERMINAL?54:40;}
  public static int halfWidth(StationKind kind){return kind==StationKind.MINI?12:kind==StationKind.TERMINAL?22:17;}
  public static int stationHeight(StationKind kind){return kind==StationKind.MINI?10:kind==StationKind.TERMINAL?18:14;}
- public record Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset){
-  public Station(Node node,long salt,Condition condition){this(node,salt,condition,false,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0);}
-  public Station(Node node,long salt,Condition condition,boolean interchange){this(node,salt,condition,interchange,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0);}
+ public record Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset,boolean deadEndMinus,boolean deadEndPlus){
+  public Station(Node node,long salt,Condition condition){this(node,salt,condition,false,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0,false,false);}
+  public Station(Node node,long salt,Condition condition,boolean interchange){this(node,salt,condition,interchange,false,false,stationKind(node,salt),TrackLayout.CENTRAL,0,false,false);}
+  public Station(Node node,long salt,Condition condition,boolean interchange,boolean northSouth,boolean portal,StationKind kind,TrackLayout trackLayout,int trackOffset){this(node,salt,condition,interchange,northSouth,portal,kind,trackLayout,trackOffset,false,false);}
   public boolean intersects(int x,int z,int margin){
    int length=halfLength(kind),minX=-length,maxX=length,minZ=-halfWidth(kind),maxZ=halfWidth(kind)+16;
    if(kind==StationKind.BIOCENTER){minZ=-62-DomeDesign.spec(salt).outerRadius();maxX=Math.max(maxX,82);}
    if(SideBranchDesign.present(salt)){var spec=SideBranchDesign.select(salt,length);minX=Math.min(minX,SideBranchDesign.minX(spec));maxZ=Math.max(maxZ,SideBranchDesign.maxZ(spec));}
+   if(kind==StationKind.TERMINAL){if(deadEndMinus)minX=Math.min(minX,-length-36);if(deadEndPlus||!deadEndMinus)maxX=Math.max(maxX,length+36);}
    return northSouth?node.x-minZ+margin>=x&&node.x-maxZ-margin<=x+15&&node.z+maxX+margin>=z&&node.z+minX-margin<=z+15:
     node.x+maxX+margin>=x&&node.x+minX-margin<=x+15&&node.z+maxZ+margin>=z&&node.z+minZ-margin<=z+15;
   }
@@ -52,7 +54,14 @@ public final class NetworkPlan {
   if(v.traffic()==StationGraph.Traffic.FREIGHT)k=StationKind.FREIGHT;
   if(ns&&k==StationKind.BIOCENTER)k=StationKind.PASSENGER;
   int offset=transfer?0:Math.floorMod(h,3)==0?4:0;
-  return new Station(n,h,condition(seed,n.x,n.z,41),transfer,ns,v.portal()&&!ns,k,offset==0?TrackLayout.CENTRAL:TrackLayout.ISLAND,offset);
+  int plusEdges=0,minusEdges=0;
+  for(var e:StationGraph.incident(seed,v)){
+   if(e.northSouth()==ns){
+    if(e.a().id().equals(v.id()))plusEdges++;
+    else minusEdges++;
+   }
+  }
+  return new Station(n,h,condition(seed,n.x,n.z,41),transfer,ns,v.portal()&&!ns,k,offset==0?TrackLayout.CENTRAL:TrackLayout.ISLAND,offset,minusEdges==0,plusEdges==0);
  }
  private record RouteKey(long seed,StationGraph.Id a,StationGraph.Id b){}
  private static final Map<RouteKey,List<TrackRoute>> TRACK_ROUTES=new LinkedHashMap<>(128,.75f,true){protected boolean removeEldestEntry(Map.Entry<RouteKey,List<TrackRoute>> e){return size()>128;}};
@@ -66,6 +75,40 @@ public final class NetworkPlan {
    boolean split=Math.abs(a.y-b.y)<48&&Math.floorMod(edge.salt(),5)==0;int startGap=3+sa.trackOffset(),endGap=3+sb.trackOffset();
    if(split||startGap!=3||endGap!=3){var branches=TransitGeometry.splitMerge(main,startGap,endGap,split);return List.of(new TrackRoute(branches.get(0),true,edge.salt()),new TrackRoute(branches.get(1),true,edge.salt()^71));}
    return List.of(new TrackRoute(main,false,edge.salt()));
+  });}
+ }
+ private record CCBKey(long seed,StationGraph.Id id){}
+ private static final Map<CCBKey,TransitGeometry.Route> CCB_ROUTES=new LinkedHashMap<>(128,.75f,true){protected boolean removeEldestEntry(Map.Entry<CCBKey,TransitGeometry.Route> e){return size()>128;}};
+ public static TransitGeometry.Route buildCCBRoute(int ax,int ay,int az,int upperL,int lowerL,boolean signZ,boolean signX){
+  int sz=signZ?1:-1,sx=signX?1:-1;
+  int xSwitchUpper=ax+sx*(upperL+6),zUpper=az+sz*3,yUpper=ay;
+  int zSwitchLower=az+sz*(lowerL+6),xLower=ax+sx*3,yLower=ay-24;
+  int r=16;int xRamp=xSwitchUpper+sx*r,zRampStart=zUpper+sz*r,rampLen=196;
+  int zRampEnd=zRampStart+sz*rampLen,xReturn=xLower+sx*r;
+  var p=new ArrayList<TransitGeometry.Point>();
+  p.add(new TransitGeometry.Point(ax+sx*(upperL-2),yUpper,zUpper));
+  p.add(new TransitGeometry.Point(xSwitchUpper,yUpper,zUpper));
+  p.add(new TransitGeometry.Point(xRamp,yUpper,zUpper));
+  p.add(new TransitGeometry.Point(xRamp,yUpper,zRampStart));
+  p.add(new TransitGeometry.Point(xRamp,yLower,zRampEnd));
+  p.add(new TransitGeometry.Point(xRamp,yLower,zRampEnd+sz*r));
+  p.add(new TransitGeometry.Point(xReturn,yLower,zRampEnd+sz*r));
+  p.add(new TransitGeometry.Point(xReturn,yLower,zSwitchLower+sz*r));
+  p.add(new TransitGeometry.Point(xLower,yLower,zSwitchLower+sz*r));
+  p.add(new TransitGeometry.Point(xLower,yLower,zSwitchLower));
+  p.add(new TransitGeometry.Point(xLower,yLower,az+sz*(lowerL-2)));
+  return TransitGeometry.rounded(p,r);
+ }
+ public static TransitGeometry.Route ccbRoute(long seed,StationGraph.Vertex v){
+  synchronized(CCB_ROUTES){return CCB_ROUTES.computeIfAbsent(new CCBKey(seed,v.id()),k->{
+   int upperL=halfLength(station(seed,v,false).kind()),lowerL=halfLength(station(seed,v,true).kind());
+   var node=v.node();
+   boolean[][] quads={{false,false},{false,true},{true,false},{true,true}};
+   for(var q:quads){
+    var r=buildCCBRoute(node.x(),node.y(),node.z(),upperL,lowerL,q[0],q[1]);
+    if(ExclusionNoise.routeClear(seed,r,12))return r;
+   }
+   return buildCCBRoute(node.x(),node.y(),node.z(),upperL,lowerL,false,false);
   });}
  }
  public record StationMatch(Node node,StationKind kind,boolean northSouth,boolean interchange){}
@@ -112,7 +155,7 @@ public final class NetworkPlan {
    for(var route:trackRoutes(seed,edge))if(route.route().intersects(sx,sz,SHELL+6))paths.add(new Path(route.route(),condition(seed,a.x,a.z,41),route.salt(),false,false,route.singleTrack(),edge.freight()));
   }
   for(var v:candidates.values()){
-   Node a=v.node();if(Math.abs(a.x-sx)>200||Math.abs(a.z-sz)>200)continue;
+   Node a=v.node();if(Math.abs(a.x-sx)>320||Math.abs(a.z-sz)>320)continue;
    var flags=halls(seed,v);long h=v.salt();Condition damage=condition(seed,a.x,a.z,41);
    for(boolean ns:new boolean[]{false,true})if(flags[ns?1:0]){var s=station(seed,v,ns);if(s.intersects(sx,sz,SHELL))stations.add(s);}
    if(flags[0]&&flags[1]){
@@ -120,6 +163,7 @@ public final class NetworkPlan {
     int upperStart=halfLength(station(seed,v,false).kind())-6;
     addPath(paths,new TransitGeometry.Route(List.of(new TransitGeometry.Point(a.x+upperStart,top,a.z+12),new TransitGeometry.Point(a.x+70,top,a.z+12))),Condition.INTACT,h,true,sx,sz);
     addPath(paths,new TransitGeometry.Route(List.of(new TransitGeometry.Point(a.x+14,bottom,a.z+12),new TransitGeometry.Point(a.x+70,bottom,a.z+12))),Condition.INTACT,h,true,sx,sz);
+    var ccb=ccbRoute(seed,v);if(ccb.intersects(sx,sz,SHELL+6))paths.add(new Path(ccb,damage,h,false,true,true,false));
    }else if(flags[0]){
     int serviceFloor=a.y+34,serviceZ=station(seed,v,false).kind()==StationKind.MINI?8:12;StairTower tower=new StairTower(a.x+66,a.z+serviceZ-1,a.y+2,serviceFloor,h);if(tower.intersects(sx,sz,SHELL))stairs.add(tower);
     int start=halfLength(station(seed,v,false).kind())-6;

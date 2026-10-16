@@ -28,6 +28,32 @@ public class StationGraphChecks {
     }
    }
    check(NetworkPlan.nearestSpiral(seed,0,0)!=null,"spiral locator finds no real coil");
+   int ccbs=0;
+   for(int rx=-1;rx<=0;rx++)for(int rz=-1;rz<=0;rz++){
+    for(var v:StationGraph.vertices(seed,rx,rz)){
+     var inc=StationGraph.incident(seed,v);boolean ew=v.portal(),ns=false;
+     for(var e:inc){if(e.northSouth())ns=true;else ew=true;}
+     if(ew&&ns){
+      ccbs++;
+      var ccb=NetworkPlan.ccbRoute(seed,v);
+      check(ccb!=null&&ExclusionNoise.routeClear(seed,ccb,12),"CCB route enters noise");
+      var plan=RailPlan.ofSingle(ccb);
+      var lane=plan.lanes().get(0);
+      check(lane.get(0).floor()==v.node().y(),"wrong CCB throat elevation");
+      check(lane.get(lane.size()-1).floor()==v.node().y()-24,"wrong CCB arrival elevation");
+      for(int i=1;i<lane.size();i++){
+       var c=lane.get(i);var prev=lane.get(i-1);
+       check(Math.abs(c.x()-prev.x())+Math.abs(c.z()-prev.z())==1,"CCB rail gap");
+       check(Math.abs(c.floor()-prev.floor())<=1,"CCB vertical jump");
+       if(c.floor()!=prev.floor()){
+        var lower=c.floor()<prev.floor()?c:prev;
+        check(lower.shape().startsWith("ascending_"),"CCB slope on curve "+lower);
+       }
+      }
+     }
+    }
+   }
+   check(ccbs>0,"interchange CCB branches absent");
    for(String type:new String[]{"station","passenger","mini","interchange","terminal","freight","mixed","biocenter","aquarium"}){
     var match=NetworkPlan.nearestStation(seed,0,0,type);check(match!=null,"no station type "+type);var n=match.node();var plan=NetworkPlan.forChunk(seed,Math.floorDiv(n.x(),16)*16,Math.floorDiv(n.z(),16)*16);check(plan.stations().stream().anyMatch(s->s.node().equals(n)&&s.kind()==match.kind()&&s.northSouth()==match.northSouth()),"locator disagrees with rendering");
    }

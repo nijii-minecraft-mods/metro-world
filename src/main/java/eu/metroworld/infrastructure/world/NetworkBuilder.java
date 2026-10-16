@@ -100,6 +100,38 @@ public final class NetworkBuilder {
   stationChest(c,s,-length+16,-width+3,Math.floorMod(s.salt(),5)==0?"secure_locker":stationLoot(kind));
   if(kind==NetworkPlan.StationKind.BIOCENTER){biocenter(c,s);botanical(c,s);}
   if(SideBranchDesign.present(s.salt()))sideBranch(c,s);
+  if(kind==NetworkPlan.StationKind.TERMINAL){
+   if(s.deadEndMinus())reversingSiding(c,s,-1);
+   if(s.deadEndPlus()||!s.deadEndMinus())reversingSiding(c,s,1);
+  }
+ }
+ private static void reversingSiding(Canvas c,NetworkPlan.Station s,int dir){
+  int len=NetworkPlan.halfLength(s.kind());int offset=s.trackOffset();
+  for(int step=1;step<=32;step++){
+   int x=dir*(len+step);
+   for(int lane:new int[]{-(3+offset),3+offset}){
+    for(int dz=-2;dz<=2;dz++)for(int h=-1;h<=7;h++){
+     int z=lane+dz;BlockState state=AIR;int pri=20;
+     if(h==-1){state=Blocks.STONE.getDefaultState();pri=25;}
+     else if(h==0){state=Blocks.POLISHED_DEEPSLATE.getDefaultState();pri=58;}
+     else if(dz==-2||dz==2||h==7){state=h==7&&dz==0&&step%8==0?Blocks.SEA_LANTERN.getDefaultState():Blocks.POLISHED_DEEPSLATE.getDefaultState();pri=25;}
+     localPut(c,s,x,h,z,state,pri);
+    }
+    if(step<=27){
+     localPut(c,s,x,0,lane,step==15||step==25?Blocks.REDSTONE_BLOCK.getDefaultState():Blocks.POLISHED_DEEPSLATE.getDefaultState(),60);
+     for(int h=1;h<=6;h++)localPut(c,s,x,h,lane,AIR,61);
+     localPut(c,s,x,1,lane,step==15||step==25?Blocks.POWERED_RAIL.getDefaultState().with(PoweredRailBlock.SHAPE,RailShape.EAST_WEST).with(PoweredRailBlock.POWERED,true):Blocks.RAIL.getDefaultState().with(RailBlock.SHAPE,RailShape.EAST_WEST),62);
+    }
+    if(step==28){
+     localPut(c,s,x,1,lane,Blocks.POLISHED_BLACKSTONE.getDefaultState(),62);
+     localPut(c,s,x,2,lane,Blocks.IRON_BLOCK.getDefaultState(),62);
+     localPut(c,s,x-dir,2,lane,Blocks.REDSTONE_TORCH.getDefaultState(),63);
+    }
+    if(step>=29){
+     for(int h=0;h<=6;h++)localPut(c,s,x,h,lane,Blocks.POLISHED_DEEPSLATE.getDefaultState(),62);
+    }
+   }
+  }
  }
  private static String stationLoot(NetworkPlan.StationKind kind){
   return switch(kind){case FREIGHT,MIXED->"freight";case BIOCENTER->"biocenter";default->"passenger";};
@@ -241,6 +273,14 @@ public final class NetworkBuilder {
     BlockPos control=at.add(dx,0,dz);BlockState state=c.peek(control.getX(),control.getY(),control.getZ());BlockState floor=c.peek(control.getX(),control.getY()-1,control.getZ());
     if(state==null||!state.isAir()||floor==null||floor.isAir())continue;
     if(cells.containsKey(control)||cells.containsKey(control.north())||cells.containsKey(control.south())||cells.containsKey(control.east())||cells.containsKey(control.west()))continue;
+    c.put(control.getX(),control.getY(),control.getZ(),InfrastructureBlocks.TRACK_SWITCH.getDefaultState(),65);placed=true;
+   }
+   if(!placed)for(int radius=1;radius<=3&&!placed;radius++)for(int dx=-radius;dx<=radius&&!placed;dx++)for(int dz=-radius;dz<=radius&&!placed;dz++){
+    if(Math.max(Math.abs(dx),Math.abs(dz))!=radius)continue;
+    BlockPos control=at.add(dx,0,dz);if(cells.containsKey(control))continue;
+    BlockState state=c.peek(control.getX(),control.getY(),control.getZ());
+    if(state!=null&&!state.isAir())continue;
+    c.put(control.getX(),control.getY()-1,control.getZ(),Blocks.POLISHED_DEEPSLATE.getDefaultState(),60);
     c.put(control.getX(),control.getY(),control.getZ(),InfrastructureBlocks.TRACK_SWITCH.getDefaultState(),65);placed=true;
    }
   }
