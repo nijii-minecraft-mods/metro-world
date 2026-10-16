@@ -168,8 +168,25 @@ public final class Trains {
  }
  private static TrainPath pathForEdge(long seed,StationGraph.Edge edge){
   var track=NetworkPlan.trackRoutes(seed,edge).get(0);var controls=new ArrayList<TransitGeometry.Point>(track.route().points());var a=StationGraph.railNode(edge.a(),edge.northSouth());var b=StationGraph.railNode(edge.b(),edge.northSouth());var first=controls.get(0);var last=controls.get(controls.size()-1);
-  controls.add(0,new TransitGeometry.Point(edge.northSouth()&&track.singleTrack()?first.x():a.x(),a.y(),!edge.northSouth()&&track.singleTrack()?first.z():a.z()));
-  controls.add(new TransitGeometry.Point(edge.northSouth()&&track.singleTrack()?last.x():b.x(),b.y(),!edge.northSouth()&&track.singleTrack()?last.z():b.z()));return TrainPath.lane(new TransitGeometry.Route(controls),track.singleTrack());
+  var sa=NetworkPlan.station(seed,edge.a(),edge.northSouth());
+  var sb=NetworkPlan.station(seed,edge.b(),edge.northSouth());
+  if(sa.isDiagonal()){
+   boolean nw=sa.orientation()==NetworkPlan.Orientation.DIAGONAL_NW;
+   int dx=28,dz=nw?-28:28;
+   controls.add(0,new TransitGeometry.Point(a.x(),a.y(),a.z()));
+   controls.add(0,new TransitGeometry.Point(a.x()-dx,a.y(),a.z()-dz));
+  }else{
+   controls.add(0,new TransitGeometry.Point(edge.northSouth()&&track.singleTrack()?first.x():a.x(),a.y(),!edge.northSouth()&&track.singleTrack()?first.z():a.z()));
+  }
+  if(sb.isDiagonal()){
+   boolean nw=sb.orientation()==NetworkPlan.Orientation.DIAGONAL_NW;
+   int dx=28,dz=nw?-28:28;
+   controls.add(new TransitGeometry.Point(b.x(),b.y(),b.z()));
+   controls.add(new TransitGeometry.Point(b.x()+dx,b.y(),b.z()+dz));
+  }else{
+   controls.add(new TransitGeometry.Point(edge.northSouth()&&track.singleTrack()?last.x():b.x(),b.y(),!edge.northSouth()&&track.singleTrack()?last.z():b.z()));
+  }
+  return TrainPath.lane(new TransitGeometry.Route(controls),track.singleTrack());
  }
  private static void extend(ServerWorld world,Runtime train){
   while(train.data.routeAnchors.size()>4)train.data.routeAnchors.remove(0);

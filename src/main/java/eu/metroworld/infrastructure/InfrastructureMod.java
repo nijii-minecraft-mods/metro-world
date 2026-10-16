@@ -36,7 +36,7 @@ public final class InfrastructureMod implements ModInitializer {
     .then(CommandManager.literal("on").executes(c->MetroMusic.enabled(c.getSource().getPlayerOrThrow(),true)))
     .then(CommandManager.literal("off").executes(c->MetroMusic.enabled(c.getSource().getPlayerOrThrow(),false))));
    dispatcher.register(CommandManager.literal("metro-world").requires(s->s.hasPermissionLevel(2))
-    .executes(c->{c.getSource().sendFeedback(()->Text.literal("Metro World: /metro-world enter, /metro-world exit, /metro-world entrance, /metro-world locate station|freight|mixed|biocenter|spiral. Измерение: metro-world:metro-world; диапазон высот −256…255."),false);return 1;})
+    .executes(c->{c.getSource().sendFeedback(()->Text.literal("Metro World: /metro-world enter, /metro-world exit, /metro-world entrance, /metro-world locate station|freight|mixed|biocenter|diagonal|spiral. Измерение: metro-world:metro-world; диапазон высот −256…255."),false);return 1;})
     .then(locateCommands())
     .then(CommandManager.literal("validate-features").executes(c->FeatureValidation.run(c.getSource())))
     .then(CommandManager.literal("validate-tracks").executes(c->TrackValidation.run(c.getSource())))
@@ -57,7 +57,7 @@ public final class InfrastructureMod implements ModInitializer {
  }
  private static com.mojang.brigadier.builder.LiteralArgumentBuilder<net.minecraft.server.command.ServerCommandSource> locateCommands(){
   var command=CommandManager.literal("locate");
-  for(String type:new String[]{"station","passenger","mini","interchange","terminal","freight","mixed","biocenter","aquarium","spiral","entrance"})command.then(CommandManager.literal(type).executes(c->locate(c.getSource(),type)));
+  for(String type:new String[]{"station","passenger","mini","interchange","terminal","freight","mixed","biocenter","aquarium","spiral","entrance","diagonal"})command.then(CommandManager.literal(type).executes(c->locate(c.getSource(),type)));
   return command;
  }
  private static int locate(net.minecraft.server.command.ServerCommandSource source,String type){
@@ -76,8 +76,8 @@ public final class InfrastructureMod implements ModInitializer {
    source.sendFeedback(()->Text.literal("Спираль: ["+tx+", "+ty+", "+tz+"]. /execute in metro-world:metro-world run tp @s "+tx+" "+ty+" "+tz),false);return 1;
   }
   var found=eu.metroworld.infrastructure.world.NetworkPlan.nearestStation(world.getSeed(),x,z,type);if(found==null){source.sendError(Text.literal("Станция не найдена в радиусе поиска."));return 0;}
-  var n=found.node();String label=switch(type){case "freight"->"Грузовая станция";case "mixed"->"Пассажирско-грузовая станция";case "terminal"->"Вокзал";case "interchange"->"Пересадка";case "biocenter"->"Биоцентр";case "aquarium"->"Аквакупол";case "mini"->"Малая станция";default->"Станция";};
-  int tx=n.x()+(found.northSouth()?-8:2),tz=n.z()+(found.northSouth()?2:8);
+  var n=found.node();String label=switch(type){case "freight"->"Грузовая станция";case "mixed"->"Пассажирско-грузовая станция";case "terminal"->"Вокзал";case "interchange"->"Пересадка";case "biocenter"->"Биоцентр";case "aquarium"->"Аквакупол";case "mini"->"Малая станция";case "diagonal"->"Диагональная станция";default->"Станция";};
+  int tx=found.isDiagonal()?n.x():n.x()+(found.northSouth()?-8:2),tz=found.isDiagonal()?n.z():n.z()+(found.northSouth()?2:8);
   source.sendFeedback(()->Text.literal(label+": ["+n.x()+", "+(n.y()+3)+", "+n.z()+"]"+((type.equals("biocenter")||type.equals("aquarium"))?"; купол ["+n.x()+", "+(n.y()+5)+", "+(n.z()-62)+"]":"")+". /execute in metro-world:metro-world run tp @s "+tx+" "+(n.y()+3)+" "+tz),false);return 1;
  }
 

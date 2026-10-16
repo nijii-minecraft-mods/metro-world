@@ -52,17 +52,64 @@ public final class NetworkBuilder {
   for(var tower:plan.stairs())stairs(c,tower);
   for(var station:plan.stations())station(c,station,seed);
   // Rail corridors own their supports and headroom, including every station layout.
-  for(var s:plan.stations())for(int x=-NetworkPlan.halfLength(s.kind());x<=NetworkPlan.halfLength(s.kind());x++)for(int z:new int[]{-(3+s.trackOffset()),3+s.trackOffset()}){
-   localPut(c,s,x,0,z,Blocks.POLISHED_DEEPSLATE.getDefaultState(),60);
-   for(int h=1;h<=6;h++)localPut(c,s,x,h,z,AIR,61);
-   localPut(c,s,x,1,z,Blocks.RAIL.getDefaultState().with(RailBlock.SHAPE,RailShape.EAST_WEST),62);
+  for(var s:plan.stations()){
+   if(s.isDiagonal()){diagonalRails(c,s);continue;}
+   for(int x=-NetworkPlan.halfLength(s.kind());x<=NetworkPlan.halfLength(s.kind());x++)for(int z:new int[]{-(3+s.trackOffset()),3+s.trackOffset()}){
+    localPut(c,s,x,0,z,Blocks.POLISHED_DEEPSLATE.getDefaultState(),60);
+    for(int h=1;h<=6;h++)localPut(c,s,x,h,z,AIR,61);
+    localPut(c,s,x,1,z,Blocks.RAIL.getDefaultState().with(RailBlock.SHAPE,RailShape.EAST_WEST),62);
+   }
   }
   rails(c,plan.paths());
   c.flush(seed);
  }
  private static BlockPos local(NetworkPlan.Station s,int x,int h,int z){var n=s.node();return s.northSouth()?new BlockPos(n.x()-z,n.y()+h,n.z()+x):new BlockPos(n.x()+x,n.y()+h,n.z()+z);}
  private static void localPut(Canvas c,NetworkPlan.Station s,int x,int h,int z,BlockState state,int priority){BlockPos p=local(s,x,h,z);c.put(p.getX(),p.getY(),p.getZ(),s.northSouth()?state.rotate(net.minecraft.util.BlockRotation.CLOCKWISE_90):state,priority);}
- private static void station(Canvas c,NetworkPlan.Station s,long seed){var n=s.node();var kind=s.kind();int length=NetworkPlan.halfLength(kind),width=NetworkPlan.halfWidth(kind),height=NetworkPlan.stationHeight(kind);
+ private static void diagonalRails(Canvas c,NetworkPlan.Station s){
+  var n=s.node();int length=NetworkPlan.halfLength(s.kind());var ori=s.orientation();boolean nw=ori==NetworkPlan.Orientation.DIAGONAL_NW;
+  for(int k=-length;k<=length;k++)for(int track:new int[]{-6,6}){
+   int rx1=n.x()+k,rz1=nw?n.z()-k+track:n.z()+k+track;
+   int rx2=rx1+1,rz2=rz1;
+   for(int[] r:new int[][]{{rx1,rz1},{rx2,rz2}}){
+    int x=r[0],z=r[1],y=n.y();
+    c.put(x,y,z,Blocks.POLISHED_DEEPSLATE.getDefaultState(),60);
+    for(int h=1;h<=6;h++)c.put(x,y+h,z,AIR,61);
+    RailShape shape;
+    if(!nw){
+     shape=((x+z)&1)==0?RailShape.NORTH_EAST:RailShape.SOUTH_WEST;
+    }else{
+     shape=((x-z)&1)==0?RailShape.NORTH_WEST:RailShape.SOUTH_EAST;
+    }
+    c.put(x,y+1,z,Blocks.RAIL.getDefaultState().with(RailBlock.SHAPE,shape),62);
+   }
+  }
+ }
+ private static void diagonalStation(Canvas c,NetworkPlan.Station s,long seed){
+  var n=s.node();var kind=s.kind();int length=NetworkPlan.halfLength(kind),width=NetworkPlan.halfWidth(kind),height=NetworkPlan.stationHeight(kind);
+  for(int x=c.sx;x<c.sx+16;x++)for(int z=c.sz;z<c.sz+16;z++)for(int h=-6;h<=height+6;h++){
+   int dx=x-n.x(),dz=z-n.z();
+   double edge=DiagonalStationDesign.edge(dx,h,dz,length,width,height,s.orientation());
+   if(edge<0){shell(c,x,n.y()+h,z,edge);continue;}
+   BlockState state=DiagonalStationDesign.sample(dx,h,dz,length,width,height,s.salt(),s.orientation());
+   state=StationDecay.decorate(dx,h,dz,length,width,height,s.salt(),s.condition(),0,state);
+   if(state!=null&&(state.isOf(Blocks.CHEST)||state.isOf(Blocks.BARREL)))c.loot.put(new BlockPos(x,n.y()+h,z),"passenger");
+   if(state!=null)c.put(x,n.y()+h,z,state,state.isAir()?34:35);
+  }
+  c.put(n.x(),n.y()+6,n.z(),Blocks.SMOOTH_QUARTZ.getDefaultState(),50);
+  c.put(n.x(),n.y()+5,n.z(),InfrastructureBlocks.WAYFINDING_SIGN.getDefaultState(),50);
+  c.sign(new BlockPos(n.x(),n.y()+6,n.z()-1),"Диагональная станция",SignKind.STATION);
+  c.put(n.x(),n.y()+6,n.z()-1,Blocks.OAK_WALL_SIGN.getDefaultState().with(WallSignBlock.FACING,Direction.NORTH),50);
+  c.put(n.x()-2,n.y()+2,n.z()+2,Blocks.SMOOTH_QUARTZ.getDefaultState(),50);
+  c.put(n.x()-2,n.y()+3,n.z()+2,InfrastructureBlocks.LIFT.getDefaultState(),50);
+  c.put(n.x()-2,n.y()+4,n.z()+2,AIR,50);
+  c.put(n.x()+2,n.y()+2,n.z()-2,Blocks.SMOOTH_QUARTZ.getDefaultState(),40);
+  c.put(n.x()+2,n.y()+3,n.z()-2,Blocks.CHEST.getDefaultState(),40);
+  c.put(n.x()+2,n.y()+4,n.z()-2,AIR,40);
+  c.loot.put(new BlockPos(n.x()+2,n.y()+3,n.z()-2),Math.floorMod(s.salt(),5)==0?"secure_locker":"passenger");
+ }
+ private static void station(Canvas c,NetworkPlan.Station s,long seed){
+  if(s.isDiagonal()){diagonalStation(c,s,seed);return;}
+  var n=s.node();var kind=s.kind();int length=NetworkPlan.halfLength(kind),width=NetworkPlan.halfWidth(kind),height=NetworkPlan.stationHeight(kind);
   for(int x=c.sx;x<c.sx+16;x++)for(int z=c.sz;z<c.sz+16;z++)for(int h=-6;h<=height+6;h++){
    int dx=s.northSouth()?z-n.z():x-n.x(),dz=s.northSouth()?n.x()-x:z-n.z();double edge=Math.min(Math.min(length-Math.abs(dx),width-Math.abs(dz)),Math.min(h,height-h));
    if(edge<0){shell(c,x,n.y()+h,z,edge);continue;}
