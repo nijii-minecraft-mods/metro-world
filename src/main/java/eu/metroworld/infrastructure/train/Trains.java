@@ -88,6 +88,14 @@ public final class Trains {
     var pose=old.get(i);int cx=(int)Math.floor(pose.x())>>4,cz=(int)Math.floor(pose.z())>>4;
     if(cx!=lastTicketCx||cz!=lastTicketCz){lastTicketCx=cx;lastTicketCz=cz;ChunkPos chunk=new ChunkPos(cx,cz);world.getChunkManager().addTicket(TICKET,chunk,2,t.data.id);world.getChunk(chunk.x,chunk.z);}
    }
+   double moveDir=Math.abs(t.data.control.speed)>0.05?Math.copySign(1.0,t.data.control.speed):t.data.control.direction;
+   for(double lookahead=16;lookahead<=128;lookahead+=16){
+    double aheadPos=t.data.control.position+lookahead*moveDir;
+    if(aheadPos>=0&&aheadPos<=t.path.length){
+     var aheadPose=t.path.at(aheadPos);int cx=(int)Math.floor(aheadPose.x())>>4,cz=(int)Math.floor(aheadPose.z())>>4;
+     if(cx!=lastTicketCx||cz!=lastTicketCz){lastTicketCx=cx;lastTicketCz=cz;ChunkPos chunk=new ChunkPos(cx,cz);world.getChunkManager().addTicket(TICKET,chunk,3,t.data.id);}
+    }
+   }
    double before=t.data.control.position;t.data.control.tick(.05,t.data.length()+2,t.path.length-2,t.path.at(before).grade());
    // Compare occupied intervals, so a split consist can move apart but cannot overlap.
    for(var other:TRAINS.values())if(other!=t&&t.path.same(other.path)){
@@ -135,27 +143,62 @@ public final class Trains {
  private static void carry(MinecraftServer server,Runtime train,int index,TrainPath.Pose old,TrainPath.Pose next){
   double carHalf=train.data.carLength(index)/2;
   for(var p:server.getPlayerManager().getPlayerList()){
-   if(!Transit.isNetworkWorld(p.getWorld())||p.isSpectator()||p.hasVehicle())continue;
-   if(Math.abs(p.getX()-old.x())>20||Math.abs(p.getZ()-old.z())>20)continue;
+   if(!Transit.isNetworkWorld(p.getWorld())||p.isSpectator())continue;
+   if(Math.abs(p.getX()-old.x())>25||Math.abs(p.getZ()-old.z())>25)continue;
+   var vehicle=p.getVehicle();
+   if(vehicle!=null){
+    if(index<train.render.size()&&train.render.get(index).seats.contains(vehicle)){
+     p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.VehicleMoveS2CPacket(vehicle));
+    }
+    continue;
+   }
    var local=old.local(p.getX(),p.getY(),p.getZ());
    var entry=BOARDING.get(p.getUuid());boolean ours=entry!=null&&entry.train.equals(train.data.id)&&entry.car==index;
-   if(!ours){if((entry!=null&&TRAINS.containsKey(entry.train))||Math.abs(local[0])>1.15||Math.abs(local[2])>carHalf||local[1]<-.15||local[1]>.35)continue;
-    boolean floor=worldFloor(p);if(!floor)continue;BOARDING.put(p.getUuid(),new Boarding(train.data.id,index));}
-   if(Math.abs(local[0])>1.65||Math.abs(local[2])>carHalf+1.2||local[1]<-1||local[1]>3.5){BOARDING.remove(p.getUuid());continue;}
+   if(!ours){
+    if((entry!=null&&TRAINS.containsKey(entry.train))||Math.abs(local[0])>1.3||Math.abs(local[2])>carHalf+0.5||local[1]<-.6||local[1]>2.2)continue;
+    BOARDING.put(p.getUuid(),new Boarding(train.data.id,index));
+   }
+   if(Math.abs(local[0])>1.8||Math.abs(local[2])>carHalf+1.5||local[1]<-1.5||local[1]>3.5){BOARDING.remove(p.getUuid());continue;}
    if(train.data.control.stopped())continue;
-   double lateral=local[0];if(!train.data.control.leftDoors&&!train.data.control.rightDoors)lateral=Math.max(-1.05,Math.min(1.05,lateral));
+   double lateral=local[0];if(!train.data.control.leftDoors&&!train.data.control.rightDoors)lateral=Math.max(-1.15,Math.min(1.15,lateral));
    double atX=next.x()+next.hz()*lateral+next.hx()*local[2];
    double atY=next.y()+local[1]+next.grade()*local[2];
    double atZ=next.z()-next.hx()*lateral+next.hz()*local[2];
-   if(Math.abs(atX-p.getX())+Math.abs(atY-p.getY())+Math.abs(atZ-p.getZ())>.001)p.networkHandler.requestTeleport(atX,atY,atZ,p.getYaw(),p.getPitch());
+   double dx=atX-p.getX(),dy=atY-p.getY(),dz=atZ-p.getZ();
+   if(dx*dx+dy*dy+dz*dz>.0001){
+    float dyaw=(float)(next.yaw()-old.yaw());
+    p.networkHandler.requestTeleport(dx,dy,dz,dyaw,0f,net.minecraft.network.packet.s2c.play.PositionFlag.VALUES);
+   }
    p.fallDistance=0;
   }
  }
  private static boolean worldFloor(ServerPlayerEntity p){return p.getWorld().getOtherEntities(p,p.getBoundingBox().offset(0,-.3,0),e->e.getCommandTags().contains("metro-world:train-floor")).size()>0;}
  public static int board(ServerPlayerEntity p){var t=nearest(p);if(t==null){p.sendMessage(Text.literal("Рядом нет поезда."));return 0;}if(!t.data.control.stopped()||!t.data.control.leftDoors&&!t.data.control.rightDoors){p.sendMessage(Text.literal("Посадка: остановите поезд и откройте двери через пульт."));return 0;}int car=0;double best=Double.MAX_VALUE;for(int i=0;i<t.data.cars.size();i++){var atCar=t.pose(i);double d=p.squaredDistanceTo(atCar.x(),atCar.y(),atCar.z());if(d<best){best=d;car=i;}}var at=t.pose(car).world(0,.05,0);p.requestTeleport(at[0],at[1],at[2]);BOARDING.put(p.getUuid(),new Boarding(t.data.id,car));p.sendMessage(Text.literal("Вы вошли в вагон №"+(car+1)+"."));return 1;}
- static int seat(ServerPlayerEntity p,Runtime t,int car,int seat){if(t.render.isEmpty()||seat<0||seat>=t.render.get(car).seats.size())return 0;var entity=t.render.get(car).seats.get(seat);if(entity.hasPassengers())return 0;if(p.squaredDistanceTo(entity)>9)return 0;BOARDING.remove(p.getUuid());return p.startRiding(entity,true)?1:0;}
+ static int seat(ServerPlayerEntity p,Runtime t,int car,int seat){if(t.render.isEmpty()||seat<0||seat>=t.render.get(car).seats.size())return 0;var entity=t.render.get(car).seats.get(seat);if(entity.hasPassengers())return 0;if(p.squaredDistanceTo(entity)>16)return 0;BOARDING.put(p.getUuid(),new Boarding(t.data.id,car));return p.startRiding(entity,true)?1:0;}
  public static int seatNearest(ServerPlayerEntity p,int seat){var t=nearest(p);if(t==null){p.sendMessage(Text.literal("Рядом нет поезда."));return 0;}int car=0;double best=Double.MAX_VALUE;for(int i=0;i<t.data.cars.size();i++){var at=t.pose(i);double d=p.squaredDistanceTo(at.x(),at.y(),at.z());if(d<best){best=d;car=i;}}int res=seat(p,t,car,seat);if(res==0)p.sendMessage(Text.literal("Не удалось сесть: подойдите ближе к сиденью или оно занято."));return res;}
- public static int stand(ServerPlayerEntity p){var vehicle=p.getVehicle();if(vehicle==null){p.sendMessage(Text.literal("Вы не сидите на месте в поезде."));return 0;}for(var t:TRAINS.values())for(int i=0;i<t.render.size();i++)if(t.render.get(i).seats.contains(vehicle)){p.stopRiding();var at=t.pose(i).world(0,.05,0);p.requestTeleport(at[0],at[1],at[2]);BOARDING.put(p.getUuid(),new Boarding(t.data.id,i));return 1;}return 0;}
+ public static int stand(ServerPlayerEntity p){
+  var vehicle=p.getVehicle();
+  for(var t:TRAINS.values())for(int i=0;i<t.render.size();i++){
+   if(vehicle!=null&&t.render.get(i).seats.contains(vehicle)){
+    p.stopRiding();
+    var at=t.pose(i).world(0,.05,0);
+    p.requestTeleport(at[0],at[1],at[2]);
+    BOARDING.put(p.getUuid(),new Boarding(t.data.id,i));
+    p.sendMessage(Text.literal("Вы встали с сиденья."));
+    return 1;
+   }
+  }
+  var entry=BOARDING.get(p.getUuid());
+  if(entry!=null&&TRAINS.containsKey(entry.train)){
+   var t=TRAINS.get(entry.train);
+   var at=t.pose(entry.car).world(0,.05,0);
+   p.requestTeleport(at[0],at[1],at[2]);
+   p.sendMessage(Text.literal("Вы в проходе вагона."));
+   return 1;
+  }
+  p.sendMessage(Text.literal("Вы не в поезде."));
+  return 0;
+ }
  static int cargo(ServerPlayerEntity p,Runtime t,int index){var at=t.pose(index);if(p.squaredDistanceTo(at.x(),at.y(),at.z())>64||!t.data.control.stopped()||!t.data.cars.get(index).cargo()||!t.nearby(p))return 0;p.openHandledScreen(new SimpleNamedScreenHandlerFactory((sync,inv,player)->new GenericContainerScreenHandler(net.minecraft.screen.ScreenHandlerType.GENERIC_9X6,sync,inv,t.cargo.get(index),6){@Override public boolean canUse(net.minecraft.entity.player.PlayerEntity player){var at=t.pose(index);return TRAINS.get(t.data.id)==t&&t.data.control.stopped()&&player instanceof ServerPlayerEntity sp&&t.nearby(sp)&&sp.squaredDistanceTo(at.x(),at.y(),at.z())<64;}@Override public void onClosed(net.minecraft.entity.player.PlayerEntity player){super.onClosed(player);if(player instanceof ServerPlayerEntity sp)save(sp.getServer());}},Text.literal("Контейнер — "+t.data.name)));return 1;}
  public static int cargoNearest(ServerPlayerEntity p){var t=nearest(p);if(t==null){p.sendMessage(Text.literal("Рядом нет поезда."));return 0;}for(int i=0;i<t.data.cars.size();i++)if(t.data.cars.get(i).cargo())return cargo(p,t,i);p.sendMessage(Text.literal("В составе нет грузовых вагонов."));return 0;}
  private static String anchor(StationGraph.Edge edge){return edge.a().id()+"→"+edge.b().id();}
