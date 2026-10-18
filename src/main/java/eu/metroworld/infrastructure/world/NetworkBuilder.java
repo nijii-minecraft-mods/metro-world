@@ -20,7 +20,7 @@ public final class NetworkBuilder {
   void put(int x,int y,int z,BlockState state,int priority){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return;int i=(y-bottom)*256+(z-sz)*16+x-sx;if(priority>=priorities[i]){states[i]=state;priorities[i]=(byte)priority;if(y<minY)minY=y;if(y>maxY)maxY=y;}}
   BlockState peek(int x,int y,int z){if(x<sx||x>sx+15||z<sz||z>sz+15||y<bottom||y>=bottom+height)return null;return states[(y-bottom)*256+(z-sz)*16+x-sx];}
   void box(int x1,int x2,int y1,int y2,int z1,int z2,BlockState state,int priority){for(int x=Math.max(sx,x1);x<=Math.min(sx+15,x2);x++)for(int z=Math.max(sz,z1);z<=Math.min(sz+15,z2);z++)for(int y=y1;y<=y2;y++)put(x,y,z,state,priority);}
-  void flush(long seed){if(minY>maxY)return;int startI=(minY-bottom)*256,endI=Math.min(states.length,(maxY-bottom+1)*256);BlockPos.Mutable pos=new BlockPos.Mutable();for(int i=startI;i<endI;i++){BlockState state=states[i];if(state==null)continue;int x=sx+(i&15),z=sz+((i>>>4)&15),y=bottom+(i>>>8);chunk.setBlockState(pos.set(x,y,z),state,false);
+  void flush(long seed){if(minY>maxY)return;int startI=(minY-bottom)*256,endI=Math.min(states.length,(maxY-bottom+1)*256);BlockPos.Mutable pos=new BlockPos.Mutable();for(int i=startI;i<endI;i++){BlockState state=states[i];if(state==null||state.isOf(Blocks.STONE))continue;int x=sx+(i&15),z=sz+((i>>>4)&15),y=bottom+(i>>>8);chunk.setBlockState(pos.set(x,y,z),state,false);
    if(state.isOf(Blocks.CHEST)||state.isOf(Blocks.BARREL)){
     LootableContainerBlockEntity container=state.isOf(Blocks.CHEST)?new ChestBlockEntity(pos.toImmutable(),state):new BarrelBlockEntity(pos.toImmutable(),state);
     String table=loot.getOrDefault(pos.toImmutable(),"maintenance");

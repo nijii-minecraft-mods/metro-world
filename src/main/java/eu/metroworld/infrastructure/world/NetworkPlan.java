@@ -154,7 +154,12 @@ public final class NetworkPlan {
    if(best!=null&&(radius-1)*StationGraph.REGION-320>distance)return best;
   }return best;
  }
+ private record ChunkKey(long seed,int sx,int sz){}
+ private static final Map<ChunkKey,ChunkPlan> CHUNK_CACHE=new LinkedHashMap<>(512,.75f,true){@Override protected boolean removeEldestEntry(Map.Entry<ChunkKey,ChunkPlan> e){return size()>512;}};
  public static ChunkPlan forChunk(long seed,int sx,int sz){
+  synchronized(CHUNK_CACHE){return CHUNK_CACHE.computeIfAbsent(new ChunkKey(seed,sx,sz),k->buildChunkPlan(seed,sx,sz));}
+ }
+ private static ChunkPlan buildChunkPlan(long seed,int sx,int sz){
   var stations=new ArrayList<Station>();var paths=new ArrayList<Path>();var rooms=new ArrayList<Room>();var stairs=new ArrayList<StairTower>();var candidates=new LinkedHashMap<StationGraph.Id,StationGraph.Vertex>();
   for(var edge:StationGraph.nearbyEdges(seed,sx,sz)){
    candidates.put(edge.a().id(),edge.a());candidates.put(edge.b().id(),edge.b());

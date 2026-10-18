@@ -109,7 +109,11 @@ public final class Trains {
     var a=current.get(i);var b=other.pose(j);if(!TrainEnvelope.overlaps(a,t.data.carLength(i),2.8,b,other.data.carLength(j),2.8))continue;
     double oldDistance=Math.hypot(old.get(i).x()-b.x(),old.get(i).z()-b.z()),newDistance=Math.hypot(a.x()-b.x(),a.z()-b.z());if(newDistance<oldDistance-.0001)occupied=true;
    }
-   if(occupied||!clear(world,t,current)){t.data.control.position=before;t.data.control.speed=0;t.data.control.traction=0;t.data.control.brake=7;current=old;}
+   if(occupied){
+    t.data.control.position=before;t.data.control.speed=0;t.data.control.traction=0;t.data.control.brake=7;current=old;
+   }else if(!clear(world,t,current)){
+    t.data.control.position=before;t.data.control.speed=0;current=old;
+   }
    for(int i=0;i<t.render.size();i++){
     carry(server,t,i,old.get(i),current.get(i));t.render.get(i).move(current.get(i));
    }
@@ -133,7 +137,14 @@ public final class Trains {
     if(bx==lastBx&&by==lastBy&&bz==lastBz)continue;
     lastBx=bx;lastBy=by;lastBz=bz;
     int cx=Math.floorDiv(bx,16),cz=Math.floorDiv(bz,16);
-    if(cx!=lastCx||cz!=lastCz){lastCx=cx;lastCz=cz;chunk=world.getChunkManager().getWorldChunk(cx,cz);}
+    if(cx!=lastCx||cz!=lastCz){
+     lastCx=cx;lastCz=cz;
+     chunk=world.getChunkManager().getWorldChunk(cx,cz);
+     if(chunk==null){
+      world.getChunk(cx,cz);
+      chunk=world.getChunkManager().getWorldChunk(cx,cz);
+     }
+    }
     if(chunk==null)return false;
     var state=chunk.getBlockState(pos.set(bx,by,bz));
     if(!state.isAir()&&!state.getCollisionShape(world,pos).isEmpty())return false;
@@ -147,7 +158,9 @@ public final class Trains {
    if(Math.abs(p.getX()-old.x())>25||Math.abs(p.getZ()-old.z())>25)continue;
    var vehicle=p.getVehicle();
    if(vehicle!=null){
-    if(index<train.render.size()&&train.render.get(index).seats.contains(vehicle)){
+    if(p.isSneaking()){
+     stand(p);
+    }else if(index<train.render.size()&&train.render.get(index).seats.contains(vehicle)){
      p.networkHandler.sendPacket(new net.minecraft.network.packet.s2c.play.VehicleMoveS2CPacket(vehicle));
     }
     continue;
@@ -164,10 +177,11 @@ public final class Trains {
    double atX=next.x()+next.hz()*lateral+next.hx()*local[2];
    double atY=next.y()+local[1]+next.grade()*local[2];
    double atZ=next.z()-next.hx()*lateral+next.hz()*local[2];
+   if(!Double.isFinite(atX)||!Double.isFinite(atY)||!Double.isFinite(atZ))continue;
+   if(Math.abs(atX)<1.0&&Math.abs(atZ)<1.0)continue;
    double dx=atX-p.getX(),dy=atY-p.getY(),dz=atZ-p.getZ();
-   if(dx*dx+dy*dy+dz*dz>.0001){
-    float dyaw=(float)(next.yaw()-old.yaw());
-    p.networkHandler.requestTeleport(dx,dy,dz,dyaw,0f,net.minecraft.network.packet.s2c.play.PositionFlag.VALUES);
+   if(dx*dx+dy*dy+dz*dz>.0001&&dx*dx+dy*dy+dz*dz<25.0){
+    p.networkHandler.requestTeleport(atX,atY,atZ,p.getYaw(),p.getPitch());
    }
    p.fallDistance=0;
   }
